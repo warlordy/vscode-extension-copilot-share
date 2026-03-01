@@ -82,3 +82,83 @@ What it does:
 - `llm-dialog-sessions-v1`: serialized session list with all messages
 - `llm-dialog-active-session`: currently selected session id
 
+## 6) Quick Integration Example
+
+Paste this snippet after the page script (or in another script loaded after `index.html`).
+
+```js
+window.onUserSend = async ({ sessionId, text }) => {
+	try {
+		const response = await fetch('/api/chat', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({
+				sessionId,
+				message: text
+			})
+		});
+
+		if (!response.ok) {
+			throw new Error(`HTTP ${response.status}`);
+		}
+
+		// Example expected shape: { reply: "..." }
+		const data = await response.json();
+		const replyText = typeof data.reply === 'string' ? data.reply : 'No response text returned.';
+
+		window.appendAgentMessage(sessionId, replyText);
+	} catch (error) {
+		window.appendAgentMessage(sessionId, `Request failed: ${error.message}`);
+	}
+};
+```
+
+If your backend returns a different field name (for example `content` or `answer`), map that field to `replyText` before calling `window.appendAgentMessage(...)`.
+
+## 7) Quick Integration Example (Streaming via Chunked Fetch)
+
+Use this when your backend streams partial text chunks (for example plain text chunks or NDJSON-style content). This example buffers chunks and appends one final agent message when streaming finishes.
+
+```js
+window.onUserSend = async ({ sessionId, text }) => {
+	try {
+		const response = await fetch('/api/chat', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({
+				sessionId,
+				message: text,
+				stream: true
+			})
+		});
+
+		if (!response.ok || !response.body) {
+			throw new Error(`HTTP ${response.status}`);
+		}
+
+		const reader = response.body.getReader();
+		const decoder = new TextDecoder('utf-8');
+		let fullText = '';
+
+		while (true) {
+			const { value, done } = await reader.read();
+			if (done) break;
+
+			const chunk = decoder.decode(value, { stream: true });
+			fullText += chunk;
+		}
+
+		fullText += decoder.decode();
+		const replyText = fullText.trim() || 'No streamed content returned.';
+
+		window.appendAgentMessage(sessionId, replyText);
+	} catch (error) {
+		window.appendAgentMessage(sessionId, `Streaming failed: ${error.message}`);
+	}
+};
+```
+
+Notes:
+- If your stream format is JSON lines, parse each chunk before appending to `fullText`.
+- Your current UI helper (`window.appendAgentMessage`) appends a complete message once; if you want live token-by-token rendering, add an incremental update helper in the page script.
+
