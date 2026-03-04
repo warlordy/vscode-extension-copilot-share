@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import * as http from 'http';
 import * as path from 'path';
 import * as os from 'os';
+import * as dgram from 'dgram';
 import { promises as fs } from 'fs';
 
 let webServer: http.Server | undefined;
@@ -15,6 +16,7 @@ type ServerStartResult = {
 	networkUrls: string[];
 	usedPort: number;
 };
+const DEBUG_PREFIX = '[copilot-sharing]';
 
 export function activate(context: vscode.ExtensionContext) {
 	console.log('Congratulations, your extension "copilot-sharing" is now active!');
@@ -82,7 +84,10 @@ async function startWebServer(context: vscode.ExtensionContext): Promise<ServerS
 
 	webServer = server;
 	serverUrl = `http://127.0.0.1:${port}`;
-	lanUrls = getLanUrls(port);
+	const preferredLanIp = await getPreferredLanIp();
+	debugLog(`Preferred LAN IP: ${preferredLanIp ?? 'none'}`);
+	lanUrls = getLanUrls(port, preferredLanIp);
+	debugLog(`LAN URLs: ${lanUrls.length > 0 ? lanUrls.join(', ') : 'none'}`);
 
 	server.on('close', () => {
 		webServer = undefined;
@@ -266,8 +271,13 @@ function sendText(response: http.ServerResponse, statusCode: number, body: strin
 	response.end(body);
 }
 
-function getLanUrls(port: number): string[] {
+function debugLog(message: string): void {
+	console.log(`${DEBUG_PREFIX} ${message}`);
+}
+
+function getLanUrls(port: number, preferredIp?: string | null): string[] {
 	const interfaces = os.networkInterfaces();
+	debugLog(`Network interfaces discovered: ${Object.keys(interfaces).join(', ') || 'none'}`);
 	const urls = new Set<string>();
 
 	for (const infos of Object.values(interfaces)) {
@@ -282,7 +292,71 @@ function getLanUrls(port: number): string[] {
 		}
 	}
 
-	return Array.from(urls);
+	const list = Array.from(urls);
+	if (preferredIp) {
+		const preferredUrl = `http://${preferredIp}:${port}`;
+		if (list.includes(preferredUrl)) {
+			debugLog(`Prioritizing preferred LAN URL: ${preferredUrl}`);
+			return [preferredUrl, ...list.filter((url) => url !== preferredUrl)];
+		}
+
+		debugLog(`Preferred LAN URL not found in interface list: ${preferredUrl}`);
+	}
+
+	return list;
+}
+
+async function getPreferredLanIp(): Promise<string | null> {
+	const routeProbeTargets = ['8.8.8.8', '1.1.1.1', '223.5.5.5'];
+
+	for (const target of routeProbeTargets) {
+		const localIp = await getLocalIpv4ForRoute(target);
+		if (localIp) {
+			debugLog(`Route probe ${target} -> local IPv4 ${localIp}`);
+			return localIp;
+		}
+		debugLog(`Route probe ${target} did not resolve a local IPv4`);
+	}
+
+	return null;
+}
+
+async function getLocalIpv4ForRoute(targetIp: string): Promise<string | null> {
+	return new Promise<string | null>((resolve) => {
+		const socket = dgram.createSocket('udp4');
+		let finished = false;
+		const timeoutId = setTimeout(() => finish(null), 1200);
+
+		const finish = (value: string | null) => {
+			if (finished) {
+				return;
+			}
+			finished = true;
+			clearTimeout(timeoutId);
+			socket.removeAllListeners();
+			try {
+				socket.close();
+			} catch {
+				// Ignore socket close race conditions (e.g. "Not running").
+			}
+			resolve(value);
+		};
+
+		socket.once('error', () => finish(null));
+		socket.connect(53, targetIp, () => {
+			const address = socket.address();
+			if (typeof address !== 'string' && isValidIpv4(address.address)) {
+				finish(address.address);
+				return;
+			}
+			finish(null);
+		});
+	});
+}
+
+function isValidIpv4(candidate: string): boolean {
+	const parts = candidate.split('.').map((part) => Number(part));
+	return parts.length === 4 && parts.every((part) => Number.isInteger(part) && part >= 0 && part <= 255);
 }
 
 function getConfiguredStartPort(): number {
