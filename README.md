@@ -1,71 +1,123 @@
-# copilot-sharing README
+# Copilot Sharing
 
-This is the README for your extension "copilot-sharing". After writing up a brief description, we recommend including the following sections.
+Copilot Sharing is a VS Code extension that starts a local HTTP server to host a web chat UI and a simple chat API endpoint.
+
+It is designed for user ↔ LLM/Agent style conversations and supports local network sharing so other devices on the same LAN can open the web app.
 
 ## Features
 
-Describe specific features of your extension including screenshots of your extension in action. Image paths are relative to this README file.
+- Starts an HTTP server from command palette:
+	- `Start Web Server for Copilot Sharing`
+- Hosts the web app from:
+	- `src/webapp/index.html`
+- Exposes API endpoint:
+	- `POST /api/chat`
+- LAN-ready server behavior:
+	- Binds to `0.0.0.0`
+	- Detects LAN IPv4 URL(s) and shows one in the startup message
+	- Supports copying LAN URL to clipboard
+- Port behavior:
+	- Uses configurable start port
+	- If port is occupied, automatically increments (`+1`) until an available port is found
+	- Shows the actual used port after startup
 
-For example if there is an image subfolder under your extension project workspace:
+## Architecture Diagram
 
-\!\[feature X\]\(images/feature-x.png\)
+```mermaid
+flowchart LR
+	A[VS Code Command\nStart Web Server for Copilot Sharing] --> B[Extension Host\nextension.ts]
+	B --> C[HTTP Server\n0.0.0.0:port]
+	C --> D[Web App\nGET / -> src/webapp/index.html]
+	D --> E[POST /api/chat]
+	E --> C
+	C --> D
+```
 
-> Tip: Many popular extensions utilize animations. This is an excellent way to show off your extension! We recommend short, focused animations that are easy to follow.
+	### Network Access Paths
 
-## Requirements
+	```mermaid
+	flowchart LR
+		S[HTTP Server\n0.0.0.0:port]
+		L[Host machine browser\n127.0.0.1:port] --> S
+		N[LAN client device\n192.168.x.x:port] --> S
+	```
 
-If you have any requirements or dependencies, add a section describing those and how to install and configure them.
+## Extension Configuration
 
-## Extension Settings
+This extension contributes the following setting:
 
-Include if your extension adds any VS Code settings through the `contributes.configuration` extension point.
+- `copilot-sharing.port`
+	- Type: `number`
+	- Default: `6800`
+	- Range: `1` to `65535`
+	- Meaning: preferred starting port for the web server
 
-For example:
+If the configured port is unavailable, the extension tries higher ports one by one until startup succeeds.
 
-This extension contributes the following settings:
+## How to Use
 
-* `myExtension.enable`: Enable/disable this extension.
-* `myExtension.thing`: Set to `blah` to do something.
+1. Open Command Palette.
+2. Run: `Start Web Server for Copilot Sharing`.
+3. In the popup:
+	 - choose **Open Web App** to open the app on localhost (`127.0.0.1`), or
+	 - choose **Copy LAN URL** to share with another device.
+4. Use the copied LAN URL (for example `http://192.168.1.23:6800`) on other clients in the same network.
 
-## Known Issues
+## API Contract (Current)
 
-Calling out known issues can help limit users opening duplicate issues against your extension.
+### Request
+
+- Method: `POST`
+- Path: `/api/chat`
+- JSON body (example):
+
+```json
+{
+	"sessionId": "s1",
+	"message": "Hello"
+}
+```
+
+### Response
+
+```json
+{
+	"sessionId": "s1",
+	"reply": "Server received: Hello",
+	"timestamp": 1700000000000
+}
+```
+
+This default response is a placeholder so you can replace it with real LLM request/response logic.
+
+## Web App Integration Notes
+
+The hosted web app (`src/webapp/index.html`) already supports callback integration:
+
+- implement `window.onUserSend({ sessionId, text })`
+- call `window.appendAgentMessage(sessionId, replyText)` when your backend returns
+
+Additional web UI documentation is available in:
+
+- `src/webapp/README.md`
+
+## Troubleshooting
+
+- If other LAN clients cannot access the URL, check OS firewall inbound rules.
+- If startup fails, verify your configured port is valid; the extension will try fallback ports automatically.
+- If no LAN URL appears, your machine may not currently have an active external IPv4 interface.
+
+## Development
+
+- Build: `npm run compile`
+- Watch: `npm run watch`
 
 ## Release Notes
 
-Users appreciate release notes as you update your extension.
+### 0.0.1
 
-### 1.0.0
-
-Initial release of ...
-
-### 1.0.1
-
-Fixed issue #.
-
-### 1.1.0
-
-Added features X, Y, and Z.
-
----
-
-## Following extension guidelines
-
-Ensure that you've read through the extensions guidelines and follow the best practices for creating your extension.
-
-* [Extension Guidelines](https://code.visualstudio.com/api/references/extension-guidelines)
-
-## Working with Markdown
-
-You can author your README using Visual Studio Code. Here are some useful editor keyboard shortcuts:
-
-* Split the editor (`Cmd+\` on macOS or `Ctrl+\` on Windows and Linux).
-* Toggle preview (`Shift+Cmd+V` on macOS or `Shift+Ctrl+V` on Windows and Linux).
-* Press `Ctrl+Space` (Windows, Linux, macOS) to see a list of Markdown snippets.
-
-## For more information
-
-* [Visual Studio Code's Markdown Support](http://code.visualstudio.com/docs/languages/markdown)
-* [Markdown Syntax Reference](https://help.github.com/articles/markdown-basics/)
-
-**Enjoy!**
+- Added command-based HTTP server startup
+- Added static hosting for `src/webapp/index.html`
+- Added `POST /api/chat` placeholder endpoint
+- Added LAN URL detection and sharing support
+- Added configurable start port (`copilot-sharing.port`) with incremental fallback
