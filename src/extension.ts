@@ -8,6 +8,7 @@ import { promises as fs } from 'fs';
 let webServer: http.Server | undefined;
 let serverUrl: string | undefined;
 let lanUrls: string[] = [];
+let statusBarItem: vscode.StatusBarItem | undefined;
 
 const MAX_BODY_SIZE = 1024 * 1024;
 
@@ -16,45 +17,30 @@ type ServerStartResult = {
 	networkUrls: string[];
 	usedPort: number;
 };
+
+type MenuAction = 'start' | 'stop' | 'open' | 'copyLocal' | 'copyLan';
+
+type ControlMenuItem = vscode.QuickPickItem & {
+	action?: MenuAction;
+};
+
 const DEBUG_PREFIX = '[copilot-sharing]';
 
 export function activate(context: vscode.ExtensionContext) {
 	console.log('Congratulations, your extension "copilot-sharing" is now active!');
+	const openMenuCommand = 'copilot-sharing.open-control-menu';
 
-	const disposable = vscode.commands.registerCommand('copilot-sharing.start-web-server', async () => {
-		try {
-			const { localUrl, networkUrls, usedPort } = await startWebServer(context);
-			const lanHint = networkUrls.length > 0
-				? `LAN URL: ${networkUrls[0]}`
-				: 'No LAN IPv4 address detected on this machine.';
-			const openUrl = localUrl;
-			const openAction = 'Open Web App';
-			const copyAction = 'Copy LAN URL';
-			const action = await vscode.window.showInformationMessage(
-				`Copilot Sharing server started on port ${usedPort}. Local: ${localUrl}. ${lanHint}`,
-				openAction,
-				copyAction
-			);
-
-			if (action === openAction) {
-				await vscode.env.openExternal(vscode.Uri.parse(openUrl));
-			}
-
-			if (action === copyAction) {
-				if (networkUrls.length > 0) {
-					await vscode.env.clipboard.writeText(networkUrls[0]);
-					void vscode.window.showInformationMessage(`Copied: ${networkUrls[0]}`);
-				} else {
-					void vscode.window.showWarningMessage('No LAN IPv4 URL is currently available to copy.');
-				}
-			}
-		} catch (error) {
-			const message = error instanceof Error ? error.message : String(error);
-			void vscode.window.showErrorMessage(`Failed to start Copilot Sharing server: ${message}`);
-		}
+	const openControlMenuCommand = vscode.commands.registerCommand(openMenuCommand, async () => {
+		await openControlMenu(context);
 	});
 
-	context.subscriptions.push(disposable);
+	statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
+	statusBarItem.name = 'Copilot Sharing Controls';
+	statusBarItem.command = openMenuCommand;
+	updateStatusBarItem();
+	statusBarItem.show();
+
+	context.subscriptions.push(openControlMenuCommand, statusBarItem);
 	context.subscriptions.push(new vscode.Disposable(() => {
 		void stopWebServer();
 	}));
@@ -62,6 +48,129 @@ export function activate(context: vscode.ExtensionContext) {
 
 export async function deactivate() {
 	await stopWebServer();
+}
+
+function getServerRuntimeState(): {
+	isRunning: boolean;
+	localUrl: string | null;
+	networkUrls: string[];
+	usedPort: number | null;
+	statusText: string;
+} {
+	const activeAddress = webServer?.address();
+	const usedPort = activeAddress && typeof activeAddress !== 'string' ? activeAddress.port : null;
+	const isRunning = Boolean(webServer && serverUrl && usedPort !== null);
+
+	if (isRunning) {
+		return {
+			isRunning,
+			localUrl: serverUrl ?? null,
+			networkUrls: lanUrls,
+			usedPort,
+			statusText: `Copilot Sharing started on port ${usedPort}.`
+		};
+	}
+
+	return {
+		isRunning: false,
+		localUrl: null,
+		networkUrls: [],
+		usedPort: null,
+		statusText: 'Copilot Sharing is stopped.'
+	};
+}
+
+function updateStatusBarItem(): void {
+	if (!statusBarItem) {
+		return;
+	}
+
+	const state = getServerRuntimeState();
+	if (state.isRunning && state.usedPort !== null) {
+		statusBarItem.text = `$(broadcast) Copilot Sharing`;
+		statusBarItem.tooltip = `${state.statusText}\nClick to open Copilot Sharing controls.`;
+		return;
+	}
+
+	statusBarItem.text = '$(circle-slash) Copilot Sharing';
+	statusBarItem.tooltip = `${state.statusText}\nClick to open Copilot Sharing controls.`;
+}
+
+async function openControlMenu(context: vscode.ExtensionContext): Promise<void> {
+	while (true) {
+		const state = getServerRuntimeState();
+		const items: ControlMenuItem[] = [
+			{ label: 'Server', kind: vscode.QuickPickItemKind.Separator },
+			{
+				label: state.isRunning ? '$(check) HTTP server: Running' : '$(circle-slash) HTTP server: Stopped',
+				detail: state.statusText
+			},
+			{ label: '$(play) Start server', action: 'start' },
+			{ label: '$(debug-stop) Stop server', action: 'stop' },
+			{ label: 'Links', kind: vscode.QuickPickItemKind.Separator },
+			{ label: '$(globe) Open web', action: 'open' },
+			{ label: '$(copy) Copy Local URL', action: 'copyLocal' },
+			{ label: '$(copy) Copy LAN URL', action: 'copyLan' }
+		];
+
+		const picked = await vscode.window.showQuickPick(items, {
+			placeHolder: 'Copilot Sharing Controls',
+			matchOnDescription: true,
+			matchOnDetail: true
+		});
+
+		if (!picked) {
+			return;
+		}
+
+		switch (picked.action) {
+			case 'start': {
+				const started = await startWebServer(context);
+				updateStatusBarItem();
+				void vscode.window.showInformationMessage(`Copilot Sharing server started on port ${started.usedPort}.`);
+				break;
+			}
+			case 'stop':
+				await stopWebServer();
+				updateStatusBarItem();
+				void vscode.window.showInformationMessage('Copilot Sharing server stopped.');
+				break;
+			case 'open': {
+				const latestState = getServerRuntimeState();
+				if (!latestState.localUrl) {
+					void vscode.window.showWarningMessage('Server is not running. Start the server first.');
+					break;
+				}
+
+				await vscode.env.openExternal(vscode.Uri.parse(latestState.localUrl));
+				break;
+			}
+			case 'copyLocal': {
+				const latestState = getServerRuntimeState();
+				if (!latestState.localUrl) {
+					void vscode.window.showWarningMessage('Server is not running. Start the server first.');
+					break;
+				}
+
+				await vscode.env.clipboard.writeText(latestState.localUrl);
+				void vscode.window.showInformationMessage(`Copied: ${latestState.localUrl}`);
+				break;
+			}
+			case 'copyLan': {
+				const latestState = getServerRuntimeState();
+				if (latestState.networkUrls.length === 0) {
+					void vscode.window.showWarningMessage('No LAN IPv4 URL is currently available to copy.');
+					break;
+				}
+
+				await vscode.env.clipboard.writeText(latestState.networkUrls[0]);
+				void vscode.window.showInformationMessage(`Copied: ${latestState.networkUrls[0]}`);
+				break;
+			}
+			default:
+				break;
+		}
+	}
 }
 
 async function startWebServer(context: vscode.ExtensionContext): Promise<ServerStartResult> {
@@ -90,7 +199,10 @@ async function startWebServer(context: vscode.ExtensionContext): Promise<ServerS
 		webServer = undefined;
 		serverUrl = undefined;
 		lanUrls = [];
+		updateStatusBarItem();
 	});
+
+	updateStatusBarItem();
 
 	return {
 		localUrl: serverUrl,
@@ -101,6 +213,7 @@ async function startWebServer(context: vscode.ExtensionContext): Promise<ServerS
 
 async function stopWebServer(): Promise<void> {
 	if (!webServer) {
+		updateStatusBarItem();
 		return;
 	}
 
@@ -114,6 +227,8 @@ async function stopWebServer(): Promise<void> {
 			resolve();
 		});
 	});
+
+	updateStatusBarItem();
 }
 
 async function handleRequest(
