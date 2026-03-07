@@ -18,10 +18,36 @@ type ServerStartResult = {
 	usedPort: number;
 };
 
-type MenuAction = 'start' | 'stop' | 'open' | 'copyLocal' | 'copyLan';
+// https://microsoft.github.io/vscode-codicons/dist/codicon.html
+const STATUS_CODICON_OPTIONS = {
+	// matched codicons
+	eye: ['eye', 'eye-closed'],
+	beaker: ['beaker', 'beaker-stop'],
+	chat: ['chat-sparkle', 'chat-sparkle-error'],
+	run: ['run-coverage', 'run-errors'],
+	search: ['search-sparkle', 'search-stop'],
+	sync: ['sync', 'sync-ignored'],
+	vm: ['vm-running', 'vm-outline'],
+	mute: ['unmute', 'mute'],
+
+	// unmatched codicons
+	radio: ['radio-tower', 'circle-slash']
+} as const;
+
+type StatusCodiconOptionKey = keyof typeof STATUS_CODICON_OPTIONS;
+
+const STATUS_CODICON_SETTING_KEY = 'statusCodiconOption';
+
+let selectedStatusCodiconKey: StatusCodiconOptionKey = 'eye';
+
+type MenuAction = 'start' | 'stop' | 'open' | 'copyLocal' | 'copyLan' | 'setIcons';
 
 type ControlMenuItem = vscode.QuickPickItem & {
 	action?: MenuAction;
+};
+
+type IconSelectionItem = vscode.QuickPickItem & {
+	key: StatusCodiconOptionKey;
 };
 
 const DEBUG_PREFIX = '[copilot-sharing]';
@@ -29,6 +55,10 @@ const DEBUG_PREFIX = '[copilot-sharing]';
 export function activate(context: vscode.ExtensionContext) {
 	console.log('Congratulations, your extension "copilot-sharing" is now active!');
 	const openMenuCommand = 'copilot-sharing.open-control-menu';
+	const storedKey = context.globalState.get<string>(STATUS_CODICON_SETTING_KEY);
+	if (storedKey && isStatusCodiconOptionKey(storedKey)) {
+		selectedStatusCodiconKey = storedKey;
+	}
 
 	const openControlMenuCommand = vscode.commands.registerCommand(openMenuCommand, async () => {
 		await openControlMenu(context);
@@ -48,6 +78,10 @@ export function activate(context: vscode.ExtensionContext) {
 
 export async function deactivate() {
 	await stopWebServer();
+}
+
+function isStatusCodiconOptionKey(value: string): value is StatusCodiconOptionKey {
+	return value in STATUS_CODICON_OPTIONS;
 }
 
 function isServerRunning(): { isRunning: boolean; usedPort: number | null } {
@@ -95,29 +129,7 @@ function updateStatusBarItem(): void {
 	}
 
 	const state = getServerRuntimeState();
-
-	// https://microsoft.github.io/vscode-codicons/dist/codicon.html
-	const codicons = {
-		// matched codicons
-		eys: ['eye', 'eye-closed'],
-		beaker: ['beaker', 'beaker-stop'],
-		chat: ['chat-sparkle', 'chat-sparkle-error'],
-		copilot: ['copilot', 'copilot-snooze'],
-		run: ['run-coverage', 'run-errors'],
-		search: ['search-sparkle', 'search-stop'],
-		sync: ['sync', 'sync-ignored'],
-		vm: ['vm-running', 'vm-outline'],
-		lock: ['lock', 'unlock'],
-		mute: ['unmute', 'mute'],
-
-		// unmatched codicons
-		share: ['live-share', 'close-all'],
-		broad: ['broadcast', 'circle-slash'],
-		radio: ['radio-tower', 'circle-slash'],
-		rocket: ['rocket', 'circle-slash']
-	};
-	const runningCodicon = codicons.eys[0];
-	const stoppedCodicon = codicons.eys[1];
+	const [runningCodicon, stoppedCodicon] = STATUS_CODICON_OPTIONS[selectedStatusCodiconKey];
 
 	if (state.isRunning && state.usedPort !== null) {
 		statusBarItem.text = `$(${runningCodicon}) Copilot Sharing`;
@@ -133,6 +145,7 @@ async function openControlMenu(context: vscode.ExtensionContext): Promise<void> 
 	while (true) {
 		const state = getServerRuntimeState();
 		const items: ControlMenuItem[] = [
+			// service
 			{ label: 'Service', kind: vscode.QuickPickItemKind.Separator },
 			{
 				label: state.isRunning ? '$(check) HTTP Service: Running' : '$(circle-slash) HTTP Service: Stopped',
@@ -140,10 +153,16 @@ async function openControlMenu(context: vscode.ExtensionContext): Promise<void> 
 			},
 			{ label: '$(play) Start Sharing', action: 'start' },
 			{ label: '$(debug-stop) Stop Sharing', action: 'stop' },
+			
+			// links
 			{ label: 'Links', kind: vscode.QuickPickItemKind.Separator },
 			{ label: '$(globe) Open Web', action: 'open' },
 			{ label: '$(copy) Copy Local URL', action: 'copyLocal' },
-			{ label: '$(copy) Copy LAN URL', action: 'copyLan' }
+			{ label: '$(copy) Copy LAN URL', action: 'copyLan' },
+			
+			// custom
+			{ label: 'Custom', kind: vscode.QuickPickItemKind.Separator },
+			{ label: '$(paintcan) Set Status Icons', action: 'setIcons' }
 		];
 
 		const picked = await vscode.window.showQuickPick(items, {
@@ -207,10 +226,42 @@ async function openControlMenu(context: vscode.ExtensionContext): Promise<void> 
 				void vscode.window.showInformationMessage(`Copied: ${latestState.networkUrls[0]}`);
 				break;
 			}
+			case 'setIcons': {
+				await setStatusIcons(context);
+				break;
+			}
 			default:
 				break;
 		}
 	}
+}
+
+async function setStatusIcons(context: vscode.ExtensionContext): Promise<void> {
+	const options = Object.entries(STATUS_CODICON_OPTIONS) as Array<
+		[StatusCodiconOptionKey, readonly [string, string]]
+	>;
+
+	const items: IconSelectionItem[] = options.map(([key, [running, stopped]]) => ({
+		key,
+		label: `$(${running}) Running · $(${stopped}) Stopped`,
+		detail: `Option: ${key}`,
+		description: key === selectedStatusCodiconKey ? 'Current' : undefined
+	}));
+
+	const picked = await vscode.window.showQuickPick(items, {
+		placeHolder: 'Select Status Icon Pair',
+		matchOnDescription: true,
+		matchOnDetail: true
+	});
+
+	if (!picked) {
+		return;
+	}
+
+	selectedStatusCodiconKey = picked.key;
+	await context.globalState.update(STATUS_CODICON_SETTING_KEY, selectedStatusCodiconKey);
+	updateStatusBarItem();
+	void vscode.window.showInformationMessage(`Status Icons Updated: ${picked.key}`);
 }
 
 async function startWebServer(context: vscode.ExtensionContext): Promise<ServerStartResult> {
