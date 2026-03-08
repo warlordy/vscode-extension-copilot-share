@@ -32,11 +32,6 @@ const appEl = document.getElementById("app");
 const newSessionBtnEl = document.getElementById("newSessionBtn");
 const sessionCountLabelEl = document.getElementById("sessionCountLabel");
 const sessionListEl = document.getElementById("sessionList");
-const serverUrlBoxEl = document.getElementById("serverUrlBox");
-const serverUrlToggleBtnEl = document.getElementById("serverUrlToggleBtn");
-const serverLanUrlValueEl = document.getElementById("serverLanUrlValue");
-const serverLocalUrlValueEl = document.getElementById("serverLocalUrlValue");
-const copyServerUrlBtnEl = document.getElementById("copyServerUrlBtn");
 const dialogTitleEl = document.getElementById("dialogTitle");
 const dialogSubtitleEl = document.getElementById("dialogSubtitle");
 const messagesEl = document.getElementById("messages");
@@ -46,15 +41,6 @@ const clearSessionHistoryBtnEl = document.getElementById("clearSessionHistoryBtn
 const resetContextBtnEl = document.getElementById("resetContextBtn");
 const sendBtnEl = document.getElementById("sendBtn");
 const mobileBackBtnEl = document.getElementById("mobileBackBtn");
-let currentLanServerUrl = "";
-let markdownConfigured = false;
-
-function updateCopyServerUrlButtonState() {
-	const hasLanUrl = Boolean(String(currentLanServerUrl || "").trim());
-	copyServerUrlBtnEl.disabled = !hasLanUrl;
-	copyServerUrlBtnEl.textContent = "Copy LAN URL";
-	copyServerUrlBtnEl.title = hasLanUrl ? "Copy LAN URL" : "LAN URL unavailable";
-}
 
 // ====== Utility functions ======
 function formatTime(timestamp) {
@@ -79,126 +65,6 @@ function escapeHtml(value) {
 		.replaceAll(">", "&gt;")
 		.replaceAll('"', "&quot;")
 		.replaceAll("'", "&#39;");
-}
-
-function renderAgentMarkdown(text) {
-	const source = String(text || "");
-
-	if (!window.marked || !window.DOMPurify) {
-		return escapeHtml(source);
-	}
-
-	if (!markdownConfigured) {
-		window.marked.setOptions({
-			gfm: true,
-			breaks: true
-		});
-		markdownConfigured = true;
-	}
-
-	const rawHtml = window.marked.parse(source);
-	return window.DOMPurify.sanitize(rawHtml, {
-		USE_PROFILES: { html: true },
-		ADD_ATTR: ["target", "rel", "class"]
-	});
-}
-
-function toSlug(value) {
-	const normalized = String(value || "")
-		.toLowerCase()
-		.replace(/[^\w\u4e00-\u9fa5\-\s]/g, "")
-		.trim()
-		.replace(/\s+/g, "-");
-
-	return normalized || "section";
-}
-
-function findAnchorTarget(root, anchorId) {
-	if (!root || !anchorId) {
-		return null;
-	}
-
-	if (window.CSS && typeof window.CSS.escape === "function") {
-		return root.querySelector(`#${window.CSS.escape(anchorId)}`);
-	}
-
-	const safeId = anchorId.replaceAll('"', '\\"');
-	return root.querySelector(`[id="${safeId}"]`);
-}
-
-function enhanceMarkdownContent(container) {
-	if (!container) {
-		return;
-	}
-
-	container.querySelectorAll(".bubble.markdown .md-content").forEach((markdownRoot) => {
-		const usedIds = new Set();
-		markdownRoot.querySelectorAll("h1, h2, h3, h4, h5, h6").forEach((heading) => {
-			const existing = heading.getAttribute("id");
-			let anchorId = existing && existing.trim() ? existing.trim() : toSlug(heading.textContent);
-			let suffix = 1;
-			while (usedIds.has(anchorId)) {
-				suffix += 1;
-				anchorId = `${toSlug(heading.textContent)}-${suffix}`;
-			}
-
-			heading.setAttribute("id", anchorId);
-			heading.classList.add("md-anchor-target");
-			usedIds.add(anchorId);
-		});
-
-		markdownRoot.querySelectorAll("a[href]").forEach((link) => {
-			const href = String(link.getAttribute("href") || "").trim();
-			if (href.startsWith("#")) {
-				link.removeAttribute("target");
-				link.removeAttribute("rel");
-
-				if (link.dataset.anchorBound === "true") {
-					return;
-				}
-
-				link.dataset.anchorBound = "true";
-				link.addEventListener("click", (event) => {
-					event.preventDefault();
-					const anchorId = decodeURIComponent(href.slice(1));
-					const target = findAnchorTarget(markdownRoot, anchorId);
-					if (target) {
-						target.scrollIntoView({ behavior: "smooth", block: "start" });
-					}
-				});
-				return;
-			}
-
-			link.setAttribute("target", "_blank");
-			link.setAttribute("rel", "noopener noreferrer");
-		});
-
-		markdownRoot.querySelectorAll("input[type='checkbox']").forEach((checkbox) => {
-			checkbox.setAttribute("disabled", "true");
-			checkbox.classList.add("md-task-checkbox");
-		});
-
-		markdownRoot.querySelectorAll("table").forEach((table) => {
-			if (table.parentElement?.classList.contains("md-table-wrap")) {
-				return;
-			}
-
-			const wrapper = document.createElement("div");
-			wrapper.className = "md-table-wrap";
-			table.parentNode?.insertBefore(wrapper, table);
-			wrapper.appendChild(table);
-		});
-	});
-}
-
-function applyMarkdownCodeHighlight(container) {
-	if (!window.hljs || !container) {
-		return;
-	}
-
-	container.querySelectorAll(".bubble.markdown pre code").forEach((codeBlock) => {
-		window.hljs.highlightElement(codeBlock);
-	});
 }
 
 function saveState() {
@@ -343,29 +209,6 @@ function hideTypingIndicator(sessionId) {
 	}
 }
 
-async function loadServerUrlInfo() {
-	try {
-		const response = await fetch("/api/server-info");
-		if (!response.ok) {
-			throw new Error(`HTTP ${response.status}`);
-		}
-
-		const data = await response.json();
-		const lanUrl = Array.isArray(data.lanUrls) && data.lanUrls.length > 0 ? String(data.lanUrls[0]) : "";
-		const localUrl = typeof data.localUrl === "string" ? data.localUrl : window.location.origin;
-
-		currentLanServerUrl = lanUrl;
-		serverLanUrlValueEl.textContent = lanUrl || "Not available";
-		serverLocalUrlValueEl.textContent = localUrl;
-		updateCopyServerUrlButtonState();
-	} catch {
-		currentLanServerUrl = "";
-		serverLanUrlValueEl.textContent = "Not available";
-		serverLocalUrlValueEl.textContent = `${window.location.origin}`;
-		updateCopyServerUrlButtonState();
-	}
-}
-
 // ====== Rendering ======
 function renderSessionList() {
 	sortSessionsByLatest();
@@ -426,8 +269,9 @@ function renderMessages() {
 		}
 
 		const bubbleClass = msg.role === "agent" ? "bubble markdown" : "bubble";
+		const markdownRenderer = typeof window.renderAgentMarkdown === "function" ? window.renderAgentMarkdown : escapeHtml;
 		const bubbleContent = msg.role === "agent"
-			? `<div class="md-content markdown-body">${renderAgentMarkdown(msg.text)}</div>`
+			? `<div class="md-content markdown-body">${markdownRenderer(msg.text)}</div>`
 			: escapeHtml(msg.text);
 
 		parts.push(`
@@ -449,8 +293,12 @@ function renderMessages() {
 	}
 
 	messagesEl.innerHTML = parts.join("");
-	enhanceMarkdownContent(messagesEl);
-	applyMarkdownCodeHighlight(messagesEl);
+	if (typeof window.enhanceMarkdownContent === "function") {
+		window.enhanceMarkdownContent(messagesEl);
+	}
+	if (typeof window.applyMarkdownCodeHighlight === "function") {
+		window.applyMarkdownCodeHighlight(messagesEl);
+	}
 	messagesEl.scrollTop = messagesEl.scrollHeight;
 }
 
@@ -679,33 +527,6 @@ mobileBackBtnEl.addEventListener("click", () => {
 	appEl.classList.remove("show-dialog");
 });
 
-copyServerUrlBtnEl.addEventListener("click", async () => {
-	const copyBtnName = "Copy LAN URL";
-	const copyTarget = String(currentLanServerUrl || "").trim();
-	if (!copyTarget) {
-		return;
-	}
-
-	try {
-		await navigator.clipboard.writeText(copyTarget);
-		copyServerUrlBtnEl.textContent = "Copied";
-		window.setTimeout(() => {
-			copyServerUrlBtnEl.textContent = copyBtnName;
-		}, 1200);
-	} catch {
-		copyServerUrlBtnEl.textContent = "Failed";
-		window.setTimeout(() => {
-			copyServerUrlBtnEl.textContent = copyBtnName;
-		}, 1200);
-	}
-});
-
-serverUrlToggleBtnEl.addEventListener("click", () => {
-	const isCollapsed = serverUrlBoxEl.classList.contains("collapsed");
-	serverUrlBoxEl.classList.toggle("collapsed", !isCollapsed);
-	serverUrlToggleBtnEl.setAttribute("aria-expanded", String(isCollapsed));
-});
-
 window.addEventListener("resize", () => {
 	if (!window.matchMedia("(max-width: 760px)").matches) {
 		appEl.classList.remove("show-dialog");
@@ -717,6 +538,7 @@ loadState();
 if (!sessions.length) {
 	createSession("New Session");
 }
-updateCopyServerUrlButtonState();
-void loadServerUrlInfo();
+if (typeof window.initServerUrlPanel === "function") {
+	void window.initServerUrlPanel();
+}
 renderAll();
