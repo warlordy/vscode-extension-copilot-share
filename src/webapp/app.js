@@ -41,6 +41,8 @@ const dialogTitleEl = document.getElementById("dialogTitle");
 const dialogSubtitleEl = document.getElementById("dialogSubtitle");
 const messagesEl = document.getElementById("messages");
 const promptInputEl = document.getElementById("promptInput");
+const modelSelectEl = document.getElementById("modelSelect");
+const clearSessionHistoryBtnEl = document.getElementById("clearSessionHistoryBtn");
 const resetContextBtnEl = document.getElementById("resetContextBtn");
 const sendBtnEl = document.getElementById("sendBtn");
 const mobileBackBtnEl = document.getElementById("mobileBackBtn");
@@ -388,15 +390,16 @@ function renderSessionList() {
 
 function renderMessages() {
 	const active = getActiveSession();
+	const subtitleText = "Enjoy your session with Copilot Share!";
 	if (!active) {
 		dialogTitleEl.textContent = "Select a session";
-		dialogSubtitleEl.textContent = "User ↔ LLM/Agent";
+		dialogSubtitleEl.textContent = subtitleText;
 		messagesEl.innerHTML = `<div class="empty">Create or select a session to start your dialog</div>`;
 		return;
 	}
 
 	dialogTitleEl.textContent = active.name;
-	dialogSubtitleEl.textContent = "User ↔ LLM/Agent";
+	dialogSubtitleEl.textContent = subtitleText;
 
 	if (!active.messages.length) {
 		messagesEl.innerHTML = `<div class="empty">No messages yet. Type below to start.</div>`;
@@ -445,8 +448,12 @@ function renderMessages() {
 function renderAll() {
 	renderSessionList();
 	renderMessages();
+	const hasActiveSession = Boolean(getActiveSession());
 	if (resetContextBtnEl) {
-		resetContextBtnEl.disabled = !getActiveSession();
+		resetContextBtnEl.disabled = !hasActiveSession;
+	}
+	if (clearSessionHistoryBtnEl) {
+		clearSessionHistoryBtnEl.disabled = !hasActiveSession;
 	}
 }
 
@@ -528,6 +535,43 @@ async function resetActiveSessionContext() {
 	}
 }
 
+async function clearActiveSessionHistory() {
+	const active = getActiveSession();
+	if (!active || !clearSessionHistoryBtnEl) {
+		return;
+	}
+
+	const ok = window.confirm(`Clear all messages in "${active.name}"?`);
+	if (!ok) {
+		return;
+	}
+
+	const originalLabel = clearSessionHistoryBtnEl.textContent || "Clear Session History";
+	clearSessionHistoryBtnEl.disabled = true;
+	clearSessionHistoryBtnEl.textContent = "Clearing...";
+
+	active.messages = [];
+	hideTypingIndicator(active.id);
+	renderAll();
+	saveState();
+
+	if (typeof window.resetChatContext === "function") {
+		try {
+			await window.resetChatContext({ sessionId: active.id });
+		} catch {
+			// Ignore reset API failures; local history is already cleared.
+		}
+	}
+
+	clearSessionHistoryBtnEl.textContent = "Cleared";
+	window.setTimeout(() => {
+		if (clearSessionHistoryBtnEl) {
+			clearSessionHistoryBtnEl.textContent = originalLabel;
+			clearSessionHistoryBtnEl.disabled = !getActiveSession();
+		}
+	}, 1000);
+}
+
 // Public helper: call this after receiving model response in your own logic.
 window.appendAgentMessage = function appendAgentMessage(sessionId, text) {
 	const target = sessions.find((item) => item.id === sessionId);
@@ -606,6 +650,12 @@ sendBtnEl.addEventListener("click", sendUserMessage);
 if (resetContextBtnEl) {
 	resetContextBtnEl.addEventListener("click", () => {
 		void resetActiveSessionContext();
+	});
+}
+
+if (clearSessionHistoryBtnEl) {
+	clearSessionHistoryBtnEl.addEventListener("click", () => {
+		void clearActiveSessionHistory();
 	});
 }
 

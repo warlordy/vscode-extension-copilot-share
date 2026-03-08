@@ -53,7 +53,7 @@
 					<button class="mobile-back" id="mobileBackBtn" aria-label="Back to sessions">← Back</button>
 					<div>
 						<div class="dialog-title-text" id="dialogTitle">Select a session</div>
-						<div class="dialog-subtitle" id="dialogSubtitle">User ↔ LLM/Agent</div>
+						<div class="dialog-subtitle" id="dialogSubtitle">Enjoy your session with Copilot Share</div>
 					</div>
 				</div>
 			</header>
@@ -64,14 +64,28 @@
 
 			<footer class="input-area">
 				<div class="input-row">
-					<div class="input-hint">Enter sends. Shift+Enter adds a newline.</div>
-					<button class="reset-btn" id="resetContextBtn" type="button">Reset Context</button>
-					<button class="send-btn" id="sendBtn" type="button">Send</button>
+					<details class="input-hint" id="inputHintMenu">
+						<summary>Input Tips</summary>
+						<div class="input-hint-popover">
+							<div><kbd>Enter</kbd>: Send message</div>
+							<div><kbd>Shift</kbd> + <kbd>Enter</kbd>: New line</div>
+						</div>
+					</details>
+					<div class="input-actions">
+						<select class="model-select" id="modelSelect" aria-label="Select Copilot model">
+							<option value="copilot-gpt-4.1" selected>Copilot GPT-4.1 (placeholder)</option>
+							<option value="copilot-gpt-4o">Copilot GPT-4o (placeholder)</option>
+							<option value="copilot-o3-mini">Copilot o3-mini (placeholder)</option>
+						</select>
+						<button class="clear-history-btn" id="clearSessionHistoryBtn" type="button">Clear Session History</button>
+						<button class="reset-btn" id="resetContextBtn" type="button">Reset Context</button>
+						<button class="send-btn" id="sendBtn" type="button">Send</button>
+					</div>
 				</div>
 				<textarea
 					id="promptInput"
 					class="prompt-input"
-					placeholder="Type your request to LLM/Agent..."
+					placeholder="Type your request to Copilot..."
 				></textarea>
 			</footer>
 		</main>
