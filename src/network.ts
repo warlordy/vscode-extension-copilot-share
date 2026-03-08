@@ -4,6 +4,7 @@ import * as path from 'path';
 import * as os from 'os';
 import * as dgram from 'dgram';
 import { promises as fs } from 'fs';
+import { clearAllSessionHistory, clearSessionHistory, generateChatReply } from './llm';
 
 const MAX_BODY_SIZE = 1024 * 1024;
 const EXTENSION_ID = 'copilot-share';
@@ -141,6 +142,11 @@ async function handleRequest(
 			return;
 		}
 
+		if (method === 'POST' && url.pathname === '/api/chat/reset') {
+			await handleChatResetRequest(request, response);
+			return;
+		}
+
 		if (method === 'GET' && url.pathname === '/api/server-info') {
 			handleServerInfoRequest(response);
 			return;
@@ -165,14 +171,54 @@ async function handleChatRequest(
 	const body = await readJsonBody(request);
 	const sessionId = typeof body.sessionId === 'string' ? body.sessionId : 'unknown-session';
 	const userMessage = typeof body.message === 'string' ? body.message.trim() : '';
-	const reply = userMessage
-		? `Server received: ${userMessage}`
-		: 'Server received an empty message.';
+	if (!userMessage) {
+		sendJson(response, 400, {
+			sessionId,
+			error: 'Message is required.'
+		});
+		return;
+	}
+
+	const reply = await generateChatReply(sessionId, userMessage);
 
 	sendJson(response, 200, {
 		sessionId,
 		reply,
 		timestamp: Date.now()
+	});
+}
+
+async function handleChatResetRequest(
+	request: http.IncomingMessage,
+	response: http.ServerResponse
+): Promise<void> {
+	const body = await readJsonBody(request);
+	const clearAll = body.clearAll === true;
+
+	if (clearAll) {
+		const clearedCount = clearAllSessionHistory();
+		sendJson(response, 200, {
+			cleared: true,
+			clearAll: true,
+			clearedCount
+		});
+		return;
+	}
+
+	const sessionId = typeof body.sessionId === 'string' ? body.sessionId.trim() : '';
+	if (!sessionId) {
+		sendJson(response, 400, {
+			error: 'sessionId is required unless clearAll is true.'
+		});
+		return;
+	}
+
+	const existed = clearSessionHistory(sessionId);
+	sendJson(response, 200, {
+		cleared: true,
+		clearAll: false,
+		sessionId,
+		hadHistory: existed
 	});
 }
 

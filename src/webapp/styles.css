@@ -457,6 +457,173 @@ body {
 	background: var(--agent-msg);
 }
 
+.bubble.markdown {
+	white-space: normal;
+}
+
+.bubble.markdown .md-content.markdown-body {
+	padding: 0;
+	margin: 0;
+	min-width: 0;
+	max-width: none;
+	background: transparent;
+	color: inherit;
+	font-family: inherit;
+	font-size: 14px;
+	line-height: 1.5;
+	word-break: break-word;
+}
+
+.bubble.markdown .md-content.markdown-body > :first-child {
+	margin-top: 0 !important;
+}
+
+.bubble.markdown .md-content.markdown-body > :last-child {
+	margin-bottom: 0 !important;
+}
+
+.bubble.markdown h1,
+.bubble.markdown h2,
+.bubble.markdown h3,
+.bubble.markdown h4,
+.bubble.markdown h5,
+.bubble.markdown h6,
+.bubble.markdown p,
+.bubble.markdown ul,
+.bubble.markdown ol,
+.bubble.markdown pre,
+.bubble.markdown blockquote {
+	margin: 0;
+}
+
+.bubble.markdown * + h1,
+.bubble.markdown * + h2,
+.bubble.markdown * + h3,
+.bubble.markdown * + h4,
+.bubble.markdown * + h5,
+.bubble.markdown * + h6,
+.bubble.markdown * + p,
+.bubble.markdown * + ul,
+.bubble.markdown * + ol,
+.bubble.markdown * + pre,
+.bubble.markdown * + blockquote {
+	margin-top: 8px;
+}
+
+.bubble.markdown ul,
+.bubble.markdown ol {
+	padding-left: 18px;
+}
+
+.bubble.markdown code {
+	font-family: Consolas, "Courier New", monospace;
+	font-size: 12px;
+	background: #eef2f7;
+	border-radius: 6px;
+	padding: 1px 5px;
+}
+
+.bubble.markdown pre {
+	padding: 10px;
+	border-radius: 10px;
+	background: #24292e;
+	overflow-x: auto;
+}
+
+.bubble.markdown pre code {
+	padding: 0;
+	background: transparent;
+	color: #e6edf3;
+	line-height: 1.5;
+	display: block;
+}
+
+.bubble.markdown blockquote {
+	padding: 0 0 0 12px;
+	border-left: 3px solid #d0d7de;
+	color: #57606a;
+}
+
+.bubble.markdown hr {
+	border: 0;
+	height: 1px;
+	background: #d8dee4;
+}
+
+.bubble.markdown .md-table-wrap {
+	overflow-x: auto;
+}
+
+.bubble.markdown table {
+	border-collapse: collapse;
+	width: 100%;
+	min-width: 320px;
+}
+
+.bubble.markdown th,
+.bubble.markdown td {
+	border: 1px solid #d0d7de;
+	padding: 6px 8px;
+	text-align: left;
+	vertical-align: top;
+}
+
+.bubble.markdown th {
+	background: #f6f8fa;
+	font-weight: 600;
+}
+
+.bubble.markdown img {
+	max-width: 100%;
+	height: auto;
+	border-radius: 8px;
+}
+
+.bubble.markdown .md-task-checkbox {
+	margin-right: 6px;
+	vertical-align: middle;
+}
+
+.bubble.markdown .md-anchor-target {
+	scroll-margin-top: 12px;
+}
+
+.bubble.markdown sup {
+	line-height: 1;
+	font-size: 11px;
+}
+
+.bubble.markdown sup a {
+	text-decoration: none;
+	font-weight: 600;
+}
+
+.bubble.markdown .footnotes {
+	margin-top: 10px;
+	padding-top: 8px;
+	border-top: 1px solid #d0d7de;
+	font-size: 12px;
+	color: #57606a;
+}
+
+.bubble.markdown .footnotes ol {
+	padding-left: 18px;
+}
+
+.bubble.markdown .footnotes li + li {
+	margin-top: 6px;
+}
+
+.bubble.markdown a.footnote-backref {
+	margin-left: 6px;
+	text-decoration: none;
+}
+
+.bubble.markdown a {
+	color: #0f5fb8;
+	text-decoration: underline;
+}
+
 .empty {
 	margin: auto;
 	text-align: center;
@@ -491,6 +658,29 @@ body {
 .send-btn {
 	padding: 8px 14px;
 	min-width: 94px;
+}
+
+.reset-btn {
+	border: none;
+	border-radius: 10px;
+	cursor: pointer;
+	font-family: inherit;
+	transition: background-color 0.16s ease, transform 0.1s ease;
+	padding: 8px 12px;
+	font-size: 12px;
+	font-weight: 600;
+	background: #edf1f7;
+	color: #334155;
+	min-width: 112px;
+}
+
+.reset-btn:hover {
+	background: #e3e8f2;
+}
+
+.reset-btn:disabled {
+	opacity: 0.55;
+	cursor: not-allowed;
 }
 
 .prompt-input {

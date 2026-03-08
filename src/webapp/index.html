@@ -5,6 +5,16 @@
 	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 	<title>Make AI for Everyone</title>
 	<link rel="stylesheet" href="./styles.css" />
+	<link
+		rel="stylesheet"
+		href="./vendor/github-markdown.css"
+		onerror="this.onerror=null;this.href='https://cdn.jsdelivr.net/npm/github-markdown-css@5.8.1/github-markdown.min.css';"
+	/>
+	<link
+		rel="stylesheet"
+		href="./vendor/highlight.github-dark.min.css"
+		onerror="this.onerror=null;this.href='https://cdn.jsdelivr.net/npm/highlight.js@11.10.0/styles/github-dark.min.css';"
+	/>
 </head>
 <body>
 	<div class="app" id="app">
@@ -54,6 +64,7 @@
 			<footer class="input-area">
 				<div class="input-row">
 					<div class="input-hint">Enter sends. Shift+Enter adds a newline.</div>
+					<button class="reset-btn" id="resetContextBtn" type="button">Reset Context</button>
 					<button class="send-btn" id="sendBtn" type="button">Send</button>
 				</div>
 				<textarea
@@ -65,6 +76,9 @@
 		</main>
 	</div>
 
+	<script src="./vendor/marked.umd.js" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/marked/marked.min.js';"></script>
+	<script src="./vendor/purify.min.js" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/dompurify@3.2.6/dist/purify.min.js';"></script>
+	<script src="./vendor/highlight.common.bundle.js" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/highlight.js@11.10.0/lib/common.min.js';"></script>
 	<script src="./app.js"></script>
 	<script src="./message.js"></script>
 </body>
