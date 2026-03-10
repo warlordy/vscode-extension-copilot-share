@@ -181,6 +181,7 @@ function createSession(name) {
 	const newSession = {
 		id: `s_${Date.now()}_${Math.random().toString(16).slice(2, 7)}`,
 		name: title,
+		modelId: "",
 		messages: []
 	};
 	sessions.unshift(newSession);
@@ -374,6 +375,9 @@ function renderMessages() {
 function renderAll() {
 	renderSessionList();
 	renderMessages();
+	if (typeof window.syncModelPickerForActiveSession === "function") {
+		window.syncModelPickerForActiveSession();
+	}
 	const hasActiveSession = Boolean(getActiveSession());
 	if (resetContextBtnEl) {
 		resetContextBtnEl.disabled = !hasActiveSession;
@@ -518,6 +522,23 @@ window.appendAgentMessage = function appendAgentMessage(sessionId, text) {
 	});
 
 	renderAll();
+	saveState();
+};
+
+window.getActiveSessionModelId = function getActiveSessionModelId() {
+	const active = getActiveSession();
+	if (!active) {
+		return "";
+	}
+	return typeof active.modelId === "string" ? active.modelId : "";
+};
+
+window.setActiveSessionModelId = function setActiveSessionModelId(modelId) {
+	const active = getActiveSession();
+	if (!active) {
+		return;
+	}
+	active.modelId = typeof modelId === "string" ? modelId : "";
 	saveState();
 };
 

@@ -1,4 +1,3 @@
-const MODEL_STORAGE_KEY = "llm-dialog-selected-model-v1";
 let modelPickerState = {
 	items: [],
 	isOpen: false
@@ -12,6 +11,30 @@ function getModelName(model) {
 function isAutoModel(item) {
 	const combined = `${item.name} ${item.id}`.toLowerCase();
 	return combined.includes("auto");
+}
+
+function getDefaultModelId(items) {
+	const autoItem = items.find((item) => isAutoModel(item));
+	if (autoItem) {
+		return autoItem.id;
+	}
+	return items[0]?.id || "";
+}
+
+function readActiveSessionModelId() {
+	if (typeof window.getActiveSessionModelId !== "function") {
+		return "";
+	}
+
+	const modelId = window.getActiveSessionModelId();
+	return typeof modelId === "string" ? modelId.trim() : "";
+}
+
+function writeActiveSessionModelId(modelId) {
+	if (typeof window.setActiveSessionModelId !== "function") {
+		return;
+	}
+	window.setActiveSessionModelId(modelId);
 }
 
 function setModelPickerSelection(selectedId) {
@@ -127,7 +150,7 @@ function renderModelPicker(models, selectedId) {
 			button.append(nameEl);
 			button.addEventListener("click", () => {
 				setModelPickerSelection(item.id);
-				localStorage.setItem(MODEL_STORAGE_KEY, item.id);
+				writeActiveSessionModelId(item.id);
 				closeModelPicker();
 			});
 			popupEl.append(button);
@@ -150,10 +173,30 @@ function renderModelPicker(models, selectedId) {
 
 	const initialId = selectedId && normalized.some((item) => item.id === selectedId)
 		? selectedId
-		: normalized[0]?.id;
+		: getDefaultModelId(normalized);
 
 	if (initialId) {
 		setModelPickerSelection(initialId);
+	}
+}
+
+function syncModelPickerForActiveSession() {
+	if (!modelPickerState.items.length) {
+		return;
+	}
+
+	const sessionModelId = readActiveSessionModelId();
+	const normalizedId = sessionModelId && modelPickerState.items.some((item) => item.id === sessionModelId)
+		? sessionModelId
+		: getDefaultModelId(modelPickerState.items);
+
+	if (!normalizedId) {
+		return;
+	}
+
+	setModelPickerSelection(normalizedId);
+	if (sessionModelId !== normalizedId) {
+		writeActiveSessionModelId(normalizedId);
 	}
 }
 
@@ -182,8 +225,7 @@ async function loadCopilotModels() {
 			return;
 		}
 
-		const savedId = localStorage.getItem(MODEL_STORAGE_KEY) || "";
-		renderModelPicker(models, savedId);
+		renderModelPicker(models, readActiveSessionModelId());
 		if (!modelPickerState.items.length) {
 			triggerNameEl.textContent = "No Copilot models";
 			selectEl.disabled = true;
@@ -191,7 +233,7 @@ async function loadCopilotModels() {
 		}
 
 		selectEl.disabled = false;
-		localStorage.setItem(MODEL_STORAGE_KEY, selectEl.value);
+		syncModelPickerForActiveSession();
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error);
 		modelPickerState.items = [];
@@ -199,6 +241,8 @@ async function loadCopilotModels() {
 		selectEl.disabled = true;
 	}
 }
+
+window.syncModelPickerForActiveSession = syncModelPickerForActiveSession;
 
 function initModelSelect() {
 	const selectEl = document.getElementById("modelSelect");
