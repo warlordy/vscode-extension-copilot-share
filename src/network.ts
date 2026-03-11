@@ -5,10 +5,9 @@ import * as os from 'os';
 import * as dgram from 'dgram';
 import { promises as fs } from 'fs';
 import { clearAllSessionHistory, clearSessionHistory, generateChatReply, listCopilotChatModels } from './llm';
+import {EXTENSION_ID, debugLog} from './helper';
 
 const MAX_BODY_SIZE = 1024 * 1024;
-const EXTENSION_ID = 'copilot-share';
-const DEBUG_PREFIX = `[${EXTENSION_ID}]`;
 
 let webServer: http.Server | undefined;
 let serverUrl: string | undefined;
@@ -165,6 +164,7 @@ async function handleRequest(
 		sendJson(response, 405, { error: 'Method not allowed' });
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error);
+		debugLog(`handle requrest failed, error : ${message}`);
 		sendJson(response, 500, { error: message });
 	}
 }
@@ -345,9 +345,6 @@ function sendText(response: http.ServerResponse, statusCode: number, body: strin
 	response.end(body);
 }
 
-function debugLog(message: string): void {
-	console.log(`${DEBUG_PREFIX} ${message}`);
-}
 
 function getLanUrls(port: number, preferredIp?: string | null): string[] {
 	const interfaces = os.networkInterfaces();

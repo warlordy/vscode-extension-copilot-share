@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
-
-const EXTENSION_ID = 'copilot-share';
+import {EXTENSION_ID, debugLog} from './helper';
+import { debug } from 'console';
 
 const SYSTEM_PROMPT =
 	'You are Copilot Share, a concise and helpful assistant. Answer clearly, stay on-topic, and use the conversation history to keep context.';
@@ -72,6 +72,7 @@ export async function generateChatReply(
 	userMessage: string,
 	modelId?: string
 ): Promise<{ reply: string; model: ChatModelInfo }> {
+	debugLog(`handle chat request, session id:${sessionId}, model id:${modelId}, user msg:${userMessage}`);
 	const model = await selectChatModel(modelId);
 	const messages = buildMessagesForSession(sessionId, userMessage);
 	const modelResponse = await model.sendRequest(messages, {
@@ -133,7 +134,7 @@ async function selectChatModel(requestedModelId?: string): Promise<vscode.Langua
 		if (exactCopilot.length > 0) {
 			return exactCopilot[0];
 		}
-}
+	}
 
 	const copilotModels = await vscode.lm.selectChatModels({ vendor: 'copilot' });
 	if (trimmedId && copilotModels.length > 0) {
@@ -151,6 +152,7 @@ async function selectChatModel(requestedModelId?: string): Promise<vscode.Langua
 		return availableModels[0];
 	}
 
+	debugLog(`fail to select model with id ${trimmedId}`);
 	throw new Error(
 		'No chat model is available. Install/sign in to GitHub Copilot Chat or another chat model provider.'
 	);
