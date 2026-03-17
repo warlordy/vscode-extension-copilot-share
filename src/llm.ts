@@ -39,6 +39,10 @@ type ConversationTurn = {
 const sessionHistory = new Map<string, ConversationTurn[]>();
 const sessionSummaries = new Map<string, string>();
 
+export function getLLMStates(): any {
+	return { chatHistory: sessionHistory, chatSummaries: sessionSummaries };
+}
+
 export async function listCopilotChatModels(): Promise<ChatModelInfo[]> {
 	const copilotModels = (await vscode.lm.selectChatModels({ vendor: 'copilot' }))
 		.filter((model) => !FILTERED_MODEL_IDS.has(model.id));

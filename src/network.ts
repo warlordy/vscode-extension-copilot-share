@@ -28,6 +28,10 @@ type ServerRuntimeState = {
 	statusText: string;
 };
 
+export function getNetworkStates():any {
+	return {webServer: webServer, serverUrl: serverUrl, lanUrls: lanUrls};
+}
+
 export function setServerStateChangeHandler(handler?: () => void): void {
 	onServerStateChanged = handler;
 }
