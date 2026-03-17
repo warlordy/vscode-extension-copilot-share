@@ -88,7 +88,8 @@ export function clearAllSessionHistory(): number {
 export async function generateChatReply(
 	sessionId: string,
 	userMessage: string,
-	modelId?: string
+	modelId?: string,
+	onChunk?: (chunk: string) => void | Promise<void>
 ): Promise<{ reply: string; model: ChatModelInfo }> {
 	debugLog(`handle chat request, session id:${sessionId}, model id:${modelId}, user msg:${userMessage}`);
 	const model = await selectChatModel(modelId);
@@ -97,7 +98,7 @@ export async function generateChatReply(
 		justification: 'Generate a helpful reply for a user chat message in Copilot Share.'
 	});
 
-	const streamedReply = await readModelTextResponse(modelResponse);
+	const streamedReply = await readModelTextResponse(modelResponse, onChunk);
 	const reply = streamedReply.trim() ? streamedReply : 'Model returned an empty response.';
 
 	appendTurn(sessionId, 'user', userMessage);
@@ -311,10 +312,16 @@ function estimateTextTokens(text: string): number {
 	return Math.ceil(text.length / TOKEN_ESTIMATE_CHARS_PER_TOKEN);
 }
 
-async function readModelTextResponse(modelResponse: vscode.LanguageModelChatResponse): Promise<string> {
+async function readModelTextResponse(
+	modelResponse: vscode.LanguageModelChatResponse,
+	onChunk?: (chunk: string) => void | Promise<void>
+): Promise<string> {
 	let reply = '';
 	for await (const chunk of modelResponse.text) {
 		reply += chunk;
+		if (onChunk) {
+			await onChunk(chunk);
+		}
 	}
 	return reply;
 }

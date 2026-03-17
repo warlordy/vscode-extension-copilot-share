@@ -506,6 +506,60 @@ async function clearActiveSessionHistory() {
 	}, 1000);
 }
 
+window.startAgentMessageStream = function startAgentMessageStream(sessionId) {
+	const target = sessions.find((item) => item.id === sessionId);
+	if (!target) {
+		return "";
+	}
+
+	hideTypingIndicator(sessionId);
+
+	const messageId = `m_${Date.now()}_${Math.random().toString(16).slice(2, 7)}`;
+	target.messages.push({
+		id: messageId,
+		role: "agent",
+		text: "",
+		timestamp: Date.now()
+	});
+
+	renderAll();
+	saveState();
+	return messageId;
+};
+
+window.updateAgentMessageStream = function updateAgentMessageStream(sessionId, messageId, text) {
+	const target = sessions.find((item) => item.id === sessionId);
+	if (!target || !messageId) {
+		return;
+	}
+
+	const targetMessage = target.messages.find((message) => message.id === messageId && message.role === "agent");
+	if (!targetMessage) {
+		return;
+	}
+
+	targetMessage.text = String(text || "");
+	renderAll();
+	saveState();
+};
+
+window.finalizeAgentMessageStream = function finalizeAgentMessageStream(sessionId, messageId, finalText) {
+	const target = sessions.find((item) => item.id === sessionId);
+	if (!target || !messageId) {
+		return;
+	}
+
+	const targetMessage = target.messages.find((message) => message.id === messageId && message.role === "agent");
+	if (!targetMessage) {
+		return;
+	}
+
+	targetMessage.text = String(finalText || targetMessage.text || "").trim();
+	hideTypingIndicator(sessionId);
+	renderAll();
+	saveState();
+};
+
 // Public helper: call this after receiving model response in your own logic.
 window.appendAgentMessage = function appendAgentMessage(sessionId, text) {
 	const target = sessions.find((item) => item.id === sessionId);

@@ -180,12 +180,18 @@ async function handleChatRequest(
 	const body = await readJsonBody(request);
 	const sessionId = typeof body.sessionId === 'string' ? body.sessionId : 'unknown-session';
 	const modelId = typeof body.modelId === 'string' ? body.modelId : undefined;
+	const stream = body.stream === true;
 	const userMessage = typeof body.message === 'string' ? body.message.trim() : '';
 	if (!userMessage) {
 		sendJson(response, 400, {
 			sessionId,
 			error: 'Message is required.'
 		});
+		return;
+	}
+
+	if (stream) {
+		await handleChatRequestStream(response, { sessionId, userMessage, modelId });
 		return;
 	}
 
@@ -197,6 +203,55 @@ async function handleChatRequest(
 		model: result.model,
 		timestamp: Date.now()
 	});
+}
+
+async function handleChatRequestStream(
+	response: http.ServerResponse,
+	requestInfo: { sessionId: string; userMessage: string; modelId?: string }
+): Promise<void> {
+	const { sessionId, userMessage, modelId } = requestInfo;
+
+	response.statusCode = 200;
+	response.setHeader('Content-Type', 'application/x-ndjson; charset=utf-8');
+	response.setHeader('Cache-Control', 'no-cache, no-transform');
+	response.setHeader('Connection', 'keep-alive');
+	response.setHeader('X-Accel-Buffering', 'no');
+	response.flushHeaders?.();
+
+	try {
+		const result = await generateChatReply(
+			sessionId,
+			userMessage,
+			modelId,
+			async (chunk) => {
+				if (!chunk) {
+					return;
+				}
+				sendNdjsonEvent(response, {
+					type: 'delta',
+					delta: chunk
+				});
+			}
+		);
+
+		sendNdjsonEvent(response, {
+			type: 'done',
+			sessionId,
+			reply: result.reply,
+			model: result.model,
+			timestamp: Date.now()
+		});
+	} catch (error) {
+		const message = error instanceof Error ? error.message : String(error);
+		sendNdjsonEvent(response, {
+			type: 'error',
+			sessionId,
+			error: message,
+			timestamp: Date.now()
+		});
+	}
+
+	response.end();
 }
 
 async function handleModelsRequest(response: http.ServerResponse): Promise<void> {
@@ -347,6 +402,10 @@ function sendText(response: http.ServerResponse, statusCode: number, body: strin
 	response.statusCode = statusCode;
 	response.setHeader('Content-Type', 'text/plain; charset=utf-8');
 	response.end(body);
+}
+
+function sendNdjsonEvent(response: http.ServerResponse, payload: Record<string, unknown>): void {
+	response.write(`${JSON.stringify(payload)}\n`);
 }
 
 
