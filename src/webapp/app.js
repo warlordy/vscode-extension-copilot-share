@@ -42,6 +42,7 @@ const promptInputEl = document.getElementById("promptInput");
 const modelSelectEl = document.getElementById("modelSelect");
 const clearSessionHistoryBtnEl = document.getElementById("clearSessionHistoryBtn");
 const resetContextBtnEl = document.getElementById("resetContextBtn");
+const cancelStreamBtnEl = document.getElementById("cancelStreamBtn");
 const sendBtnEl = document.getElementById("sendBtn");
 const mobileBackBtnEl = document.getElementById("mobileBackBtn");
 
@@ -378,12 +379,25 @@ function renderAll() {
 	if (typeof window.syncModelPickerForActiveSession === "function") {
 		window.syncModelPickerForActiveSession();
 	}
+	updateInputActionStates();
+}
+
+function updateInputActionStates() {
 	const hasActiveSession = Boolean(getActiveSession());
+	const hasInFlightStream = hasActiveSession
+		&& typeof window.isSessionStreamInFlight === "function"
+		&& window.isSessionStreamInFlight(activeSessionId);
 	if (resetContextBtnEl) {
 		resetContextBtnEl.disabled = !hasActiveSession;
 	}
 	if (clearSessionHistoryBtnEl) {
 		clearSessionHistoryBtnEl.disabled = !hasActiveSession;
+	}
+	if (cancelStreamBtnEl) {
+		cancelStreamBtnEl.disabled = !hasInFlightStream;
+	}
+	if (sendBtnEl) {
+		sendBtnEl.disabled = !hasActiveSession || hasInFlightStream;
 	}
 }
 
@@ -663,6 +677,20 @@ if (clearSessionHistoryBtnEl) {
 		void clearActiveSessionHistory();
 	});
 }
+
+if (cancelStreamBtnEl) {
+	cancelStreamBtnEl.addEventListener("click", () => {
+		const active = getActiveSession();
+		if (!active || typeof window.cancelUserSend !== "function") {
+			return;
+		}
+		window.cancelUserSend(active.id);
+	});
+}
+
+window.onSessionStreamStateChanged = function onSessionStreamStateChanged() {
+	updateInputActionStates();
+};
 
 promptInputEl.addEventListener("keydown", (event) => {
 	if (event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey) {

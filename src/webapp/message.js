@@ -2,6 +2,86 @@ let modelPickerState = {
 	items: [],
 	isOpen: false
 };
+const activeStreamControllers = new Map();
+
+function getOrCreateSessionControllerSet(sessionId) {
+	const key = String(sessionId || "");
+	if (!key) {
+		return null;
+	}
+
+	let set = activeStreamControllers.get(key);
+	if (!set) {
+		set = new Set();
+		activeStreamControllers.set(key, set);
+	}
+
+	return set;
+}
+
+function notifyStreamStateChanged(sessionId) {
+	if (typeof window.onSessionStreamStateChanged !== "function") {
+		return;
+	}
+
+	window.onSessionStreamStateChanged({
+		sessionId,
+		inFlight: window.isSessionStreamInFlight(sessionId)
+	});
+}
+
+function attachStreamController(sessionId, controller) {
+	const set = getOrCreateSessionControllerSet(sessionId);
+	if (!set || !(controller instanceof AbortController)) {
+		return;
+	}
+
+	set.add(controller);
+	notifyStreamStateChanged(sessionId);
+}
+
+function detachStreamController(sessionId, controller) {
+	const key = String(sessionId || "");
+	const set = activeStreamControllers.get(key);
+	if (!set) {
+		return;
+	}
+
+	set.delete(controller);
+	if (set.size === 0) {
+		activeStreamControllers.delete(key);
+	}
+
+	notifyStreamStateChanged(key);
+}
+
+window.isSessionStreamInFlight = function isSessionStreamInFlight(sessionId) {
+	const key = String(sessionId || "");
+	if (!key) {
+		return false;
+	}
+
+	const set = activeStreamControllers.get(key);
+	return Boolean(set && set.size > 0);
+};
+
+window.cancelUserSend = function cancelUserSend(sessionId) {
+	const key = String(sessionId || "");
+	if (!key) {
+		return false;
+	}
+
+	const set = activeStreamControllers.get(key);
+	if (!set || set.size === 0) {
+		return false;
+	}
+
+	for (const controller of Array.from(set)) {
+		controller.abort();
+	}
+
+	return true;
+};
 
 function getModelName(model) {
 	const rawName = typeof model?.name === "string" ? model.name.trim() : "";
@@ -295,11 +375,14 @@ if (document.readyState === "loading") {
 window.onUserSend = async ({ sessionId, text, modelId }) => {
 	let streamMessageId = "";
 	let streamedText = "";
+	const controller = new AbortController();
+	attachStreamController(sessionId, controller);
 
 	try {
 		const response = await fetch('/api/chat', {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
+			signal: controller.signal,
 			body: JSON.stringify({
 				sessionId,
 				message: text,
@@ -390,12 +473,23 @@ window.onUserSend = async ({ sessionId, text, modelId }) => {
 			flushEventLine(buffer);
 		}
 	} catch (error) {
+		if (error instanceof DOMException && error.name === "AbortError") {
+			if (streamMessageId && typeof window.finalizeAgentMessageStream === "function") {
+				window.finalizeAgentMessageStream(sessionId, streamMessageId, streamedText || "Generation canceled.");
+			} else if (!streamedText) {
+				window.appendAgentMessage(sessionId, "Generation canceled.");
+			}
+			return;
+		}
+
 		const message = error instanceof Error ? error.message : String(error);
 		if (streamMessageId && typeof window.finalizeAgentMessageStream === "function") {
 			window.finalizeAgentMessageStream(sessionId, streamMessageId, streamedText || `Request failed: ${message}`);
 			return;
 		}
 		window.appendAgentMessage(sessionId, `Request failed: ${message}`);
+	} finally {
+		detachStreamController(sessionId, controller);
 	}
 };
 

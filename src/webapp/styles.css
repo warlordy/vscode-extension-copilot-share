@@ -913,6 +913,29 @@ body {
 	cursor: not-allowed;
 }
 
+.cancel-btn {
+	border: none;
+	border-radius: 10px;
+	cursor: pointer;
+	font-family: inherit;
+	transition: background-color 0.16s ease, transform 0.1s ease;
+	padding: 7px 10px;
+	font-size: 11px;
+	font-weight: 600;
+	background: #fdeced;
+	color: #b4232f;
+	min-width: 80px;
+}
+
+.cancel-btn:hover {
+	background: #f9dde0;
+}
+
+.cancel-btn:disabled {
+	opacity: 0.55;
+	cursor: not-allowed;
+}
+
 .prompt-input {
 	width: 100%;
 	min-height: 90px;
@@ -1008,6 +1031,7 @@ body {
 	}
 
 	.clear-history-btn,
+	.cancel-btn,
 	.reset-btn,
 	.send-btn {
 		flex: 0 0 auto;
@@ -1020,6 +1044,7 @@ body {
 
 @media (max-width: 520px) {
 	.clear-history-btn,
+	.cancel-btn,
 	.reset-btn,
 	.send-btn {
 		min-width: 0;
@@ -1029,6 +1054,7 @@ body {
 		flex: 1 1 100%;
 	}
 
+	.cancel-btn,
 	.reset-btn,
 	.send-btn {
 		flex: 1 1 calc(50% - 4px);
