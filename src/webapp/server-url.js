@@ -1,21 +1,44 @@
 function initServerUrlPanel() {
 	const serverUrlBoxEl = document.getElementById("serverUrlBox");
-	const serverUrlToggleBtnEl = document.getElementById("serverUrlToggleBtn");
+	const serverUrlMenuBtnEl = document.getElementById("serverUrlMenuBtn");
+	const serverUrlMenuEl = document.getElementById("serverUrlMenu");
+	const copyServerLanMenuItemEl = document.getElementById("copyServerLanMenuItem");
+	const openServerLanMenuItemEl = document.getElementById("openServerLanMenuItem");
+	const copyServerLanMenuLabelEl = document.getElementById("copyServerLanMenuLabel");
+	const openServerLanMenuLabelEl = document.getElementById("openServerLanMenuLabel");
 	const serverLanUrlValueEl = document.getElementById("serverLanUrlValue");
 	const serverLocalUrlValueEl = document.getElementById("serverLocalUrlValue");
-	const copyServerUrlBtnEl = document.getElementById("copyServerUrlBtn");
 
-	if (!serverUrlBoxEl || !serverUrlToggleBtnEl || !serverLanUrlValueEl || !serverLocalUrlValueEl || !copyServerUrlBtnEl) {
+	if (!serverUrlBoxEl || !serverUrlMenuBtnEl || !serverUrlMenuEl || !copyServerLanMenuItemEl || !openServerLanMenuItemEl || !copyServerLanMenuLabelEl || !openServerLanMenuLabelEl) {
 		return Promise.resolve();
 	}
 
 	let currentLanServerUrl = "";
 
-	function updateCopyServerUrlButtonState() {
+	function setMenuLabel(labelEl, value) {
+		labelEl.textContent = value;
+	}
+
+	function updateMenuActionState() {
 		const hasLanUrl = Boolean(String(currentLanServerUrl || "").trim());
-		copyServerUrlBtnEl.disabled = !hasLanUrl;
-		copyServerUrlBtnEl.textContent = "Copy LAN URL";
-		copyServerUrlBtnEl.title = hasLanUrl ? "Copy LAN URL" : "LAN URL unavailable";
+		copyServerLanMenuItemEl.disabled = !hasLanUrl;
+		setMenuLabel(copyServerLanMenuLabelEl, "Copy Public URL");
+		copyServerLanMenuItemEl.title = hasLanUrl ? "Copy public URL" : "Public URL unavailable";
+
+		openServerLanMenuItemEl.disabled = !hasLanUrl;
+		setMenuLabel(openServerLanMenuLabelEl, "Open Public URL");
+		openServerLanMenuItemEl.title = hasLanUrl ? "Open public URL" : "Public URL unavailable";
+	}
+
+	function closeMenu() {
+		serverUrlMenuEl.hidden = true;
+		serverUrlMenuBtnEl.setAttribute("aria-expanded", "false");
+	}
+
+	function toggleMenu() {
+		const shouldOpen = serverUrlMenuEl.hidden;
+		serverUrlMenuEl.hidden = !shouldOpen;
+		serverUrlMenuBtnEl.setAttribute("aria-expanded", String(shouldOpen));
 	}
 
 	async function loadServerUrlInfo() {
@@ -30,19 +53,31 @@ function initServerUrlPanel() {
 			const localUrl = typeof data.localUrl === "string" ? data.localUrl : window.location.origin;
 
 			currentLanServerUrl = lanUrl;
-			serverLanUrlValueEl.textContent = lanUrl || "Not available";
-			serverLocalUrlValueEl.textContent = localUrl;
-			updateCopyServerUrlButtonState();
+			if (serverLanUrlValueEl) {
+				serverLanUrlValueEl.textContent = lanUrl || "Not available";
+			}
+			if (serverLocalUrlValueEl) {
+				serverLocalUrlValueEl.textContent = localUrl;
+			}
+			updateMenuActionState();
 		} catch {
 			currentLanServerUrl = "";
-			serverLanUrlValueEl.textContent = "Not available";
-			serverLocalUrlValueEl.textContent = `${window.location.origin}`;
-			updateCopyServerUrlButtonState();
+			if (serverLanUrlValueEl) {
+				serverLanUrlValueEl.textContent = "Not available";
+			}
+			if (serverLocalUrlValueEl) {
+				serverLocalUrlValueEl.textContent = `${window.location.origin}`;
+			}
+			updateMenuActionState();
 		}
 	}
 
-	copyServerUrlBtnEl.addEventListener("click", async () => {
-		const copyBtnName = "Copy LAN URL";
+	serverUrlMenuBtnEl.addEventListener("click", () => {
+		toggleMenu();
+	});
+
+	copyServerLanMenuItemEl.addEventListener("click", async () => {
+		const copyBtnName = "Copy Public URL";
 		const copyTarget = String(currentLanServerUrl || "").trim();
 		if (!copyTarget) {
 			return;
@@ -50,25 +85,60 @@ function initServerUrlPanel() {
 
 		try {
 			await navigator.clipboard.writeText(copyTarget);
-			copyServerUrlBtnEl.textContent = "Copied";
+			setMenuLabel(copyServerLanMenuLabelEl, "Copied");
 			window.setTimeout(() => {
-				copyServerUrlBtnEl.textContent = copyBtnName;
+				setMenuLabel(copyServerLanMenuLabelEl, copyBtnName);
 			}, 1200);
 		} catch {
-			copyServerUrlBtnEl.textContent = "Failed";
+			setMenuLabel(copyServerLanMenuLabelEl, "Failed");
 			window.setTimeout(() => {
-				copyServerUrlBtnEl.textContent = copyBtnName;
+				setMenuLabel(copyServerLanMenuLabelEl, copyBtnName);
 			}, 1200);
+		}
+
+		closeMenu();
+	});
+
+	openServerLanMenuItemEl.addEventListener("click", () => {
+		const openBtnName = "Open Public URL";
+		const targetUrl = String(currentLanServerUrl || "").trim();
+		if (!targetUrl) {
+			return;
+		}
+
+		const openedWindow = window.open(targetUrl, "_blank", "noopener,noreferrer");
+		if (openedWindow) {
+			setMenuLabel(openServerLanMenuLabelEl, "Opened");
+		} else {
+			setMenuLabel(openServerLanMenuLabelEl, "Blocked");
+		}
+		window.setTimeout(() => {
+			setMenuLabel(openServerLanMenuLabelEl, openBtnName);
+		}, 1200);
+
+		closeMenu();
+	});
+
+	document.addEventListener("click", (event) => {
+		const target = event.target;
+		if (!(target instanceof Node)) {
+			return;
+		}
+		if (serverUrlBoxEl.contains(target)) {
+			return;
+		}
+		closeMenu();
+	});
+
+	document.addEventListener("keydown", (event) => {
+		if (event.key === "Escape") {
+			closeMenu();
+			serverUrlMenuBtnEl.focus();
 		}
 	});
 
-	serverUrlToggleBtnEl.addEventListener("click", () => {
-		const isCollapsed = serverUrlBoxEl.classList.contains("collapsed");
-		serverUrlBoxEl.classList.toggle("collapsed", !isCollapsed);
-		serverUrlToggleBtnEl.setAttribute("aria-expanded", String(isCollapsed));
-	});
-
-	updateCopyServerUrlButtonState();
+	updateMenuActionState();
+	closeMenu();
 	return loadServerUrlInfo();
 }
 

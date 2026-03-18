@@ -20,29 +20,41 @@
 <body>
 	<div class="app" id="app">
 		<aside class="sidebar">
-			<div class="server-url collapsed" id="serverUrlBox">
+			<div class="server-url" id="serverUrlBox">
 				<div class="server-url-header">
-					<button class="server-url-toggle" id="serverUrlToggleBtn" type="button" aria-expanded="false" aria-controls="serverUrlContent">
-						<div class="server-url-label">Server URLs</div>
-						<div class="server-url-chevron">▾</div>
-					</button>
-					<button class="server-url-copy" id="copyServerUrlBtn" type="button">Copy LAN URL</button>
-				</div>
-				<div class="server-url-content" id="serverUrlContent">
-					<div class="server-url-item">
-						<div class="server-url-key">LAN URL</div>
-						<div class="server-url-value" id="serverLanUrlValue">Loading...</div>
-					</div>
-					<div class="server-url-item">
-						<div class="server-url-key">Local URL</div>
-						<div class="server-url-value" id="serverLocalUrlValue">Loading...</div>
+					<div class="server-url-label">Copilot Share</div>
+					<div class="server-url-actions">
+						<button class="sidebar-toggle-btn" id="sidebarToggleBtn" type="button" aria-label="Collapse sidebar" title="Collapse sidebar">
+							<span class="sidebar-toggle-icon" aria-hidden="true"></span>
+						</button>
+						<div class="server-url-menu">
+							<button
+								class="server-url-menu-trigger"
+								id="serverUrlMenuBtn"
+								type="button"
+								aria-haspopup="menu"
+								aria-expanded="false"
+								aria-controls="serverUrlMenu"
+								aria-label="More actions"
+								title="More actions"
+							>
+								<span class="server-url-menu-dots" aria-hidden="true"></span>
+							</button>
+							<div class="server-url-menu-popup" id="serverUrlMenu" role="menu" hidden>
+								<button class="server-url-menu-item" id="copyServerLanMenuItem" type="button" role="menuitem">
+									<span class="server-url-menu-item-icon" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg" fill="currentColor"><path d="M3 5V12.73C2.4 12.38 2 11.74 2 11V5C2 2.79 3.79 1 6 1H9C9.74 1 10.38 1.4 10.73 2H6C4.35 2 3 3.35 3 5ZM11 15H6C4.897 15 4 14.103 4 13V5C4 3.897 4.897 3 6 3H11C12.103 3 13 3.897 13 5V13C13 14.103 12.103 15 11 15ZM12 5C12 4.448 11.552 4 11 4H6C5.448 4 5 4.448 5 5V13C5 13.552 5.448 14 6 14H11C11.552 14 12 13.552 12 13V5Z"/></svg></span>
+									<span class="server-url-menu-item-text" id="copyServerLanMenuLabel">Copy Public URL</span>
+								</button>
+								<button class="server-url-menu-item" id="openServerLanMenuItem" type="button" role="menuitem">
+									<span class="server-url-menu-item-icon" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg" fill="currentColor"><path d="M8 1C4.141 1 1 4.141 1 8C1 11.859 4.141 15 8 15C11.859 15 15 11.859 15 8C15 4.141 11.859 1 8 1ZM8 14C7.422 14 6.686 12.906 6.288 11H9.713C9.315 12.906 8.579 14 8.001 14H8ZM6.121 10C6.044 9.392 6 8.723 6 8C6 7.277 6.044 6.608 6.121 6H9.878C9.955 6.608 9.999 7.277 9.999 8C9.999 8.723 9.955 9.392 9.878 10H6.121ZM2 8C2 7.299 2.121 6.626 2.343 6H5.121C5.041 6.656 5 7.332 5 8C5 8.668 5.041 9.344 5.121 10H2.343C2.121 9.374 2 8.701 2 8ZM8 2C8.578 2 9.314 3.094 9.712 5H6.287C6.685 3.094 7.422 2 8 2ZM10.879 6H13.657C13.879 6.626 14 7.299 14 8C14 8.701 13.879 9.374 13.657 10H10.879C10.959 9.344 11 8.668 11 8C11 7.332 10.959 6.656 10.879 6ZM13.195 5H10.722C10.516 3.938 10.199 2.98 9.775 2.268C11.228 2.719 12.446 3.707 13.195 5ZM6.226 2.268C5.802 2.98 5.484 3.938 5.279 5H2.806C3.556 3.707 4.774 2.718 6.226 2.268ZM2.805 11H5.278C5.484 12.062 5.801 13.02 6.225 13.732C4.772 13.281 3.554 12.293 2.805 11ZM9.774 13.732C10.198 13.02 10.516 12.062 10.721 11H13.194C12.444 12.293 11.226 13.282 9.774 13.732Z"/></svg></span>
+									<span class="server-url-menu-item-text" id="openServerLanMenuLabel">Open Public URL</span>
+								</button>
+							</div>
+						</div>
 					</div>
 				</div>
 			</div>
 			<div class="sidebar-header">
-				<button class="sidebar-toggle-btn" id="sidebarToggleBtn" type="button" aria-label="Collapse sidebar" title="Collapse sidebar">
-					<span class="sidebar-toggle-icon" aria-hidden="true"></span>
-				</button>
 				<div class="sidebar-title">Sessions</div>
 				<button class="primary-btn" id="newSessionBtn" type="button">+ New</button>
 			</div>
