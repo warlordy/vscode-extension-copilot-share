@@ -1,6 +1,7 @@
 let modelPickerState = {
 	items: [],
-	isOpen: false
+	isOpen: false,
+	searchQuery: ""
 };
 const activeStreamControllers = new Map();
 
@@ -145,6 +146,88 @@ function setModelPickerSelection(selectedId) {
 	}
 }
 
+function getFilteredModelGroups(query) {
+	const searchText = String(query || "").trim().toLowerCase();
+	const filtered = searchText
+		? modelPickerState.items.filter((item) => `${item.name} ${item.id}`.toLowerCase().includes(searchText))
+		: modelPickerState.items.slice();
+
+	const autoModels = filtered.filter((item) => isAutoModel(item));
+	const otherModels = filtered
+		.filter((item) => !isAutoModel(item))
+		.sort((a, b) => {
+			const byName = a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
+			if (byName !== 0) {
+				return byName;
+			}
+			return a.id.localeCompare(b.id, undefined, { sensitivity: "base" });
+		});
+
+	return { autoModels, otherModels };
+}
+
+function renderModelPickerList() {
+	const popupEl = document.getElementById("modelPickerPopup");
+	const selectEl = document.getElementById("modelSelect");
+	if (!(popupEl instanceof HTMLElement)) {
+		return;
+	}
+
+	const listEl = popupEl.querySelector(".model-picker-list");
+	if (!(listEl instanceof HTMLElement)) {
+		return;
+	}
+
+	listEl.innerHTML = "";
+	const { autoModels, otherModels } = getFilteredModelGroups(modelPickerState.searchQuery);
+
+	const appendGroupItems = (items) => {
+		if (!items.length) {
+			return;
+		}
+
+		for (const item of items) {
+			const button = document.createElement("button");
+			button.type = "button";
+			button.className = "model-picker-item";
+			button.dataset.id = item.id;
+
+			const nameEl = document.createElement("span");
+			nameEl.className = "model-picker-item-name";
+			nameEl.textContent = item.name;
+
+			button.append(nameEl);
+			button.addEventListener("click", () => {
+				setModelPickerSelection(item.id);
+				writeActiveSessionModelId(item.id);
+				closeModelPicker();
+			});
+			listEl.append(button);
+		}
+	};
+
+	appendGroupItems(autoModels);
+
+	if (autoModels.length && otherModels.length) {
+		const separator = document.createElement("div");
+		separator.className = "model-picker-separator";
+		listEl.append(separator);
+	}
+
+	appendGroupItems(otherModels);
+
+	if (!autoModels.length && !otherModels.length) {
+		const empty = document.createElement("div");
+		empty.className = "model-picker-empty";
+		empty.textContent = modelPickerState.searchQuery ? "No matching models" : "No Copilot models";
+		listEl.append(empty);
+	}
+
+	if (selectEl instanceof HTMLSelectElement && selectEl.value) {
+		setModelPickerSelection(selectEl.value);
+	}
+}
+
 function closeModelPicker() {
 	const triggerEl = document.getElementById("modelPickerTrigger");
 	const popupEl = document.getElementById("modelPickerPopup");
@@ -153,6 +236,12 @@ function closeModelPicker() {
 	}
 
 	modelPickerState.isOpen = false;
+	modelPickerState.searchQuery = "";
+	const searchInputEl = popupEl.querySelector(".model-picker-search-input");
+	if (searchInputEl instanceof HTMLInputElement) {
+		searchInputEl.value = "";
+	}
+	renderModelPickerList();
 	triggerEl.setAttribute("aria-expanded", "false");
 	popupEl.hidden = true;
 }
@@ -165,6 +254,13 @@ function openModelPicker() {
 	}
 
 	modelPickerState.isOpen = true;
+	const searchInputEl = popupEl.querySelector(".model-picker-search-input");
+	if (searchInputEl instanceof HTMLInputElement) {
+		window.setTimeout(() => {
+			searchInputEl.focus();
+			searchInputEl.select();
+		}, 0);
+	}
 	triggerEl.setAttribute("aria-expanded", "true");
 	popupEl.hidden = false;
 }
@@ -193,6 +289,7 @@ function renderModelPicker(models, selectedId) {
 		.filter(Boolean);
 
 	modelPickerState.items = normalized;
+	modelPickerState.searchQuery = "";
 
 	for (const item of normalized) {
 		const option = document.createElement("option");
@@ -201,55 +298,32 @@ function renderModelPicker(models, selectedId) {
 		selectEl.append(option);
 	}
 
-	const autoModels = normalized.filter((item) => isAutoModel(item));
-	const otherModels = normalized
-		.filter((item) => !isAutoModel(item))
-		.sort((a, b) => {
-			const byName = a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
-			if (byName !== 0) {
-				return byName;
-			}
-			return a.id.localeCompare(b.id, undefined, { sensitivity: "base" });
-		});
+	const searchWrap = document.createElement("div");
+	searchWrap.className = "model-picker-search";
 
-	const appendGroupItems = (items) => {
-		if (!items.length) {
-			return;
-		}
+	const searchInput = document.createElement("input");
+	searchInput.type = "search";
+	searchInput.className = "model-picker-search-input";
+	searchInput.placeholder = "Search models";
+	searchInput.setAttribute("aria-label", "Search models");
+	searchInput.spellcheck = false;
+	searchInput.autocomplete = "off";
+	searchInput.addEventListener("input", () => {
+		modelPickerState.searchQuery = searchInput.value;
+		renderModelPickerList();
+	});
+	searchWrap.append(searchInput);
+	popupEl.append(searchWrap);
 
-		for (const item of items) {
-			const button = document.createElement("button");
-			button.type = "button";
-			button.className = "model-picker-item";
-			button.dataset.id = item.id;
+	const searchDivider = document.createElement("div");
+	searchDivider.className = "model-picker-search-divider";
+	popupEl.append(searchDivider);
 
-			const nameEl = document.createElement("span");
-			nameEl.className = "model-picker-item-name";
-			nameEl.textContent = item.name;
+	const listEl = document.createElement("div");
+	listEl.className = "model-picker-list";
+	popupEl.append(listEl);
 
-			button.append(nameEl);
-			button.addEventListener("click", () => {
-				setModelPickerSelection(item.id);
-				writeActiveSessionModelId(item.id);
-				closeModelPicker();
-			});
-			popupEl.append(button);
-		}
-	};
-
-	appendGroupItems(autoModels);
-
-	if (autoModels.length && otherModels.length) {
-		const separator = document.createElement("div");
-		separator.className = "model-picker-separator";
-		popupEl.append(separator);
-	}
-
-	appendGroupItems(otherModels);
-
-	if (!autoModels.length && !otherModels.length) {
-		popupEl.textContent = "No Copilot models";
-	}
+	renderModelPickerList();
 
 	const initialId = selectedId && normalized.some((item) => item.id === selectedId)
 		? selectedId
