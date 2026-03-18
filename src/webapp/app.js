@@ -1,6 +1,7 @@
 // ====== Storage keys ======
 const STORAGE_KEY = "llm-dialog-sessions-v1";
 const ACTIVE_KEY = "llm-dialog-active-session";
+const SIDEBAR_KEY = "llm-dialog-sidebar-collapsed-v1";
 
 // ====== Seed data for first launch ======
 const DEFAULT_SESSIONS = [
@@ -29,6 +30,7 @@ let typingTimeoutId = null;
 let promptHistorySessionId = null;
 let promptHistoryIndex = -1;
 let promptHistoryDraft = "";
+let isSidebarCollapsed = false;
 
 // ====== DOM references ======
 const appEl = document.getElementById("app");
@@ -45,6 +47,7 @@ const resetContextBtnEl = document.getElementById("resetContextBtn");
 const cancelStreamBtnEl = document.getElementById("cancelStreamBtn");
 const sendBtnEl = document.getElementById("sendBtn");
 const mobileBackBtnEl = document.getElementById("mobileBackBtn");
+const sidebarToggleBtnEl = document.getElementById("sidebarToggleBtn");
 
 // ====== Utility functions ======
 function formatTime(timestamp) {
@@ -79,6 +82,10 @@ function saveState() {
 	}
 }
 
+function saveSidebarState() {
+	localStorage.setItem(SIDEBAR_KEY, isSidebarCollapsed ? "1" : "0");
+}
+
 function loadState() {
 	// Load saved sessions and active session on app launch.
 	const stored = localStorage.getItem(STORAGE_KEY);
@@ -95,6 +102,29 @@ function loadState() {
 	const storedActive = localStorage.getItem(ACTIVE_KEY);
 	const found = sessions.find((item) => item.id === storedActive);
 	activeSessionId = found ? found.id : sessions[0]?.id || null;
+
+	isSidebarCollapsed = localStorage.getItem(SIDEBAR_KEY) === "1";
+}
+
+function applySidebarState() {
+	if (!appEl) {
+		return;
+	}
+
+	const isMobileLayout = window.matchMedia("(max-width: 760px)").matches;
+	const shouldCollapse = isSidebarCollapsed && !isMobileLayout;
+	appEl.classList.toggle("sidebar-collapsed", shouldCollapse);
+
+	if (sidebarToggleBtnEl) {
+		sidebarToggleBtnEl.setAttribute("aria-label", shouldCollapse ? "Expand sidebar" : "Collapse sidebar");
+		sidebarToggleBtnEl.setAttribute("title", shouldCollapse ? "Expand sidebar" : "Collapse sidebar");
+	}
+}
+
+function toggleSidebarCollapse() {
+	isSidebarCollapsed = !isSidebarCollapsed;
+	applySidebarState();
+	saveSidebarState();
 }
 
 function getActiveSession() {
@@ -741,7 +771,12 @@ window.addEventListener("resize", () => {
 	if (!window.matchMedia("(max-width: 760px)").matches) {
 		appEl.classList.remove("show-dialog");
 	}
+	applySidebarState();
 });
+
+if (sidebarToggleBtnEl) {
+	sidebarToggleBtnEl.addEventListener("click", toggleSidebarCollapse);
+}
 
 // ====== Bootstrapping ======
 loadState();
@@ -751,4 +786,5 @@ if (!sessions.length) {
 if (typeof window.initServerUrlPanel === "function") {
 	void window.initServerUrlPanel();
 }
+applySidebarState();
 renderAll();
