@@ -1473,8 +1473,20 @@ body {
 }
 
 .send-btn {
-	padding: 6px 10px;
-	min-width: 74px;
+	padding: 5px 8px;
+	min-width: 60px;
+	border-radius: 8px;
+	font-size: 12px;
+	line-height: 1.2;
+}
+
+.send-btn.is-cancel {
+	background: #fdeced;
+	color: #b4232f;
+}
+
+.send-btn.is-cancel:hover {
+	background: #f9dde0;
 }
 
 .clear-history-btn {
@@ -1519,29 +1531,6 @@ body {
 }
 
 .reset-btn:disabled {
-	opacity: 0.55;
-	cursor: not-allowed;
-}
-
-.cancel-btn {
-	border: none;
-	border-radius: 10px;
-	cursor: pointer;
-	font-family: inherit;
-	transition: background-color 0.16s ease, transform 0.1s ease;
-	padding: 7px 10px;
-	font-size: 11px;
-	font-weight: 600;
-	background: #fdeced;
-	color: #b4232f;
-	min-width: 80px;
-}
-
-.cancel-btn:hover {
-	background: #f9dde0;
-}
-
-.cancel-btn:disabled {
 	opacity: 0.55;
 	cursor: not-allowed;
 }
@@ -1645,7 +1634,6 @@ body {
 	}
 
 	.clear-history-btn,
-	.cancel-btn,
 	.reset-btn,
 	.send-btn {
 		flex: 0 0 auto;
@@ -1658,7 +1646,6 @@ body {
 
 @media (max-width: 520px) {
 	.clear-history-btn,
-	.cancel-btn,
 	.reset-btn,
 	.send-btn {
 		min-width: 0;
@@ -1668,7 +1655,6 @@ body {
 		flex: 1 1 100%;
 	}
 
-	.cancel-btn,
 	.reset-btn,
 	.send-btn {
 		flex: 1 1 calc(50% - 4px);

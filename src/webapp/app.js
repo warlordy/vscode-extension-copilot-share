@@ -327,11 +327,11 @@ const clearSessionHistoryBtnEl = document.getElementById("clearSessionHistoryBtn
 const resetContextBtnEl = document.getElementById("resetContextBtn");
 const dialogHeaderMenuBtnEl = document.getElementById("dialogHeaderMenuBtn");
 const dialogHeaderMenuEl = document.getElementById("dialogHeaderMenu");
-const cancelStreamBtnEl = document.getElementById("cancelStreamBtn");
 const sendBtnEl = document.getElementById("sendBtn");
 const mobileBackBtnEl = document.getElementById("mobileBackBtn");
 const sidebarToggleBtnEl = document.getElementById("sidebarToggleBtn");
 const sidebarEl = document.querySelector(".sidebar");
+const defaultPromptPlaceholder = promptInputEl?.getAttribute("placeholder") || "Type your request to Copilot...";
 
 let sessionHoverPopupEl = null;
 
@@ -772,12 +772,24 @@ function updateInputActionStates() {
 	if (clearSessionHistoryBtnEl) {
 		clearSessionHistoryBtnEl.disabled = !hasActiveSession;
 	}
-	if (cancelStreamBtnEl) {
-		cancelStreamBtnEl.disabled = !hasInFlightStream;
-	}
 	if (sendBtnEl) {
-		sendBtnEl.disabled = !hasActiveSession || hasInFlightStream;
+		sendBtnEl.disabled = !hasActiveSession;
+		sendBtnEl.textContent = hasInFlightStream ? "Cancel" : "Send";
+		sendBtnEl.classList.toggle("is-cancel", hasInFlightStream);
 	}
+	if (promptInputEl) {
+		promptInputEl.placeholder = hasInFlightStream
+			? "Response is streaming. Press Enter or Cancel to stop."
+			: defaultPromptPlaceholder;
+	}
+}
+
+function isActiveSessionStreamInFlight() {
+	return Boolean(
+		activeSessionId
+		&& typeof window.isSessionStreamInFlight === "function"
+		&& window.isSessionStreamInFlight(activeSessionId)
+	);
 }
 
 // ====== User actions ======
@@ -797,6 +809,10 @@ function openSession(sessionId, fromListClick = false) {
 }
 
 function sendUserMessage() {
+	if (isActiveSessionStreamInFlight()) {
+		return;
+	}
+
 	const text = promptInputEl.value.trim();
 	if (!text) {
 		return;
@@ -822,6 +838,22 @@ function sendUserMessage() {
 			modelId: modelSelectEl ? String(modelSelectEl.value || "").trim() : ""
 		});
 	}
+}
+
+function cancelActiveSessionStream() {
+	const active = getActiveSession();
+	if (!active || typeof window.cancelUserSend !== "function") {
+		return;
+	}
+	window.cancelUserSend(active.id);
+}
+
+function handlePrimaryActionClick() {
+	if (isActiveSessionStreamInFlight()) {
+		cancelActiveSessionStream();
+		return;
+	}
+	sendUserMessage();
 }
 
 async function resetActiveSessionContext() {
@@ -1093,7 +1125,7 @@ sessionListEl.addEventListener("focusout", (event) => {
 	hideSessionHoverPopup();
 });
 
-sendBtnEl.addEventListener("click", sendUserMessage);
+sendBtnEl.addEventListener("click", handlePrimaryActionClick);
 
 
 // Dialog header menu logic
@@ -1162,16 +1194,6 @@ if (clearSessionHistoryBtnEl) {
 	});
 }
 
-if (cancelStreamBtnEl) {
-	cancelStreamBtnEl.addEventListener("click", () => {
-		const active = getActiveSession();
-		if (!active || typeof window.cancelUserSend !== "function") {
-			return;
-		}
-		window.cancelUserSend(active.id);
-	});
-}
-
 window.onSessionStreamStateChanged = function onSessionStreamStateChanged() {
 	updateInputActionStates();
 };
@@ -1190,7 +1212,7 @@ promptInputEl.addEventListener("keydown", (event) => {
 
 	if (event.key === "Enter" && !event.shiftKey) {
 		event.preventDefault();
-		sendUserMessage();
+		handlePrimaryActionClick();
 	}
 });
 

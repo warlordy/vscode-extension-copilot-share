@@ -122,7 +122,7 @@
 						<summary>Input Tips</summary>
 						<div class="input-hint-popover">
 							<ol class="input-hint-list">
-								<li><div class="input-hint-item"><kbd>Enter</kbd><span>: Send prompts</span></div></li>
+								<li><div class="input-hint-item"><kbd>Enter</kbd><span>: Send / Cancel streaming</span></div></li>
 								<li><div class="input-hint-item"><kbd>Shift</kbd><span>+</span><kbd>Enter</kbd><span>: New line</span></div></li>
 								<li><div class="input-hint-item"><kbd>Mouse Wheel</kbd><span>: Browse history prompts</span></div></li>
 								<li><div class="input-hint-item"><kbd>Alt</kbd><span>+</span><kbd>↑</kbd><span>/</span><kbd>↓</kbd><span>: Browse history prompts</span></div></li>
@@ -147,14 +147,13 @@
 								<option value="">Loading Copilot models...</option>
 							</select>
 						</div>
-						<button class="cancel-btn" id="cancelStreamBtn" type="button" disabled>Cancel</button>
 						<button class="send-btn" id="sendBtn" type="button">Send</button>
 					</div>
 				</div>
 				<textarea
 					id="promptInput"
 					class="prompt-input"
-					placeholder="Type your request to Copilot..."
+					placeholder="Enter your request to Copilot. Press Enter or Send to submit."
 				></textarea>
 			</footer>
 		</main>
