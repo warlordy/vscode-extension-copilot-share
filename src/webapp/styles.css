@@ -331,6 +331,11 @@ body {
 
 .app.sidebar-collapsed .copilot-share-header {
 	justify-content: center;
+	gap: 0;
+}
+
+.app.sidebar-collapsed .copilot-share-meta {
+	display: none;
 }
 
 .app.sidebar-collapsed .copilot-share-label {
@@ -344,8 +349,9 @@ body {
 .app.sidebar-collapsed .copilot-share-actions {
 	flex-direction: column;
 	align-items: center;
+	justify-content: center;
+	width: 100%;
 	gap: 6px;
-	transform: translateX(-2px);
 }
 
 .app.sidebar-collapsed .copilot-share-actions .sidebar-toggle-btn,
@@ -377,7 +383,7 @@ body {
 }
 
 .app.sidebar-collapsed .session-list {
-	padding: 8px 6px;
+	padding: 8px 0;
 	width: 100%;
 	display: flex;
 	flex-direction: column;
@@ -393,7 +399,7 @@ body {
 	padding: 6px;
 	width: 52px;
 	min-height: 52px;
-	margin: 0;
+	margin: 0 auto;
 	justify-items: center;
 	background: rgba(255, 255, 255, 0.4);
 	position: relative;
@@ -770,6 +776,13 @@ body {
 	flex: 1;
 	min-height: 0;
 	scrollbar-gutter: stable;
+	-ms-overflow-style: none;
+	scrollbar-width: none;
+}
+
+.session-list::-webkit-scrollbar {
+	width: 0;
+	height: 0;
 }
 
 .session-item {
