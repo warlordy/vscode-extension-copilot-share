@@ -106,7 +106,6 @@ function highlightMessageMatches(query) {
 
 const messageSearchBarEl = document.getElementById("messageSearchBar");
 const messageSearchInputEl = document.getElementById("messageSearchInput");
-const messageSearchStartBtnEl = document.getElementById("messageSearchStartBtn");
 const messageSearchPrevBtnEl = document.getElementById("messageSearchPrevBtn");
 const messageSearchNextBtnEl = document.getElementById("messageSearchNextBtn");
 const messageSearchMatchInfoEl = document.getElementById("messageSearchMatchInfo");
@@ -258,9 +257,6 @@ if (dialogHeaderSearchBtnEl) {
 }
 if (closeMessageSearchBtnEl) {
 	closeMessageSearchBtnEl.addEventListener("click", closeMessageSearchBar);
-}
-if (messageSearchStartBtnEl) {
-	messageSearchStartBtnEl.addEventListener("click", runMessageSearch);
 }
 if (messageSearchInputEl) {
 	messageSearchInputEl.addEventListener("keydown", (event) => {
