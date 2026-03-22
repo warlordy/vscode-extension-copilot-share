@@ -1,3 +1,289 @@
+// ====== Message search functionality ======
+function clearMessageHighlights() {
+	if (!messagesEl) {
+		return;
+	}
+
+	const highlighted = messagesEl.querySelectorAll(".search-highlight");
+	const parents = new Set();
+	highlighted.forEach((element) => {
+		const parent = element.parentNode;
+		if (parent) {
+			parents.add(parent);
+		}
+		element.replaceWith(document.createTextNode(element.textContent || ""));
+	});
+
+	parents.forEach((parent) => {
+		if (typeof parent.normalize === "function") {
+			parent.normalize();
+		}
+	});
+}
+
+function escapeRegExp(value) {
+	return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+
+function highlightTextNodeMatches(textNode, pattern, highlights) {
+	const value = textNode.nodeValue || "";
+	pattern.lastIndex = 0;
+	if (!pattern.test(value)) {
+		return;
+	}
+
+	pattern.lastIndex = 0;
+	const fragment = document.createDocumentFragment();
+	let lastIndex = 0;
+	let match;
+
+	while ((match = pattern.exec(value)) !== null) {
+		const startIndex = match.index;
+		const matchText = match[0];
+		if (startIndex > lastIndex) {
+			fragment.append(value.slice(lastIndex, startIndex));
+		}
+
+		const highlight = document.createElement("span");
+		highlight.className = "search-highlight";
+		highlight.textContent = matchText;
+		fragment.append(highlight);
+		highlights.push(highlight);
+		lastIndex = startIndex + matchText.length;
+
+		if (!matchText.length) {
+			break;
+		}
+	}
+
+	if (lastIndex < value.length) {
+		fragment.append(value.slice(lastIndex));
+	}
+
+	textNode.replaceWith(fragment);
+}
+
+function highlightMessageMatches(query) {
+	clearMessageHighlights();
+	if (!messagesEl || !query) {
+		return [];
+	}
+
+	const pattern = new RegExp(escapeRegExp(query), "gi");
+	const messageBubbles = messagesEl.querySelectorAll(".message-row .bubble");
+	const highlights = [];
+
+	messageBubbles.forEach((bubble) => {
+		const walker = document.createTreeWalker(bubble, NodeFilter.SHOW_TEXT, {
+			acceptNode(node) {
+				if (!node.nodeValue || !node.nodeValue.trim()) {
+					return NodeFilter.FILTER_REJECT;
+				}
+
+				if (node.parentElement && node.parentElement.closest(".search-highlight")) {
+					return NodeFilter.FILTER_REJECT;
+				}
+
+				return NodeFilter.FILTER_ACCEPT;
+			}
+		});
+
+		const textNodes = [];
+		let currentNode = walker.nextNode();
+		while (currentNode) {
+			textNodes.push(currentNode);
+			currentNode = walker.nextNode();
+		}
+
+		textNodes.forEach((textNode) => {
+			highlightTextNodeMatches(textNode, pattern, highlights);
+		});
+	});
+
+	return highlights;
+}
+
+const messageSearchBarEl = document.getElementById("messageSearchBar");
+const messageSearchInputEl = document.getElementById("messageSearchInput");
+const messageSearchStartBtnEl = document.getElementById("messageSearchStartBtn");
+const messageSearchPrevBtnEl = document.getElementById("messageSearchPrevBtn");
+const messageSearchNextBtnEl = document.getElementById("messageSearchNextBtn");
+const messageSearchMatchInfoEl = document.getElementById("messageSearchMatchInfo");
+const closeMessageSearchBtnEl = document.getElementById("closeMessageSearchBtn");
+const dialogHeaderSearchBtnEl = document.getElementById("dialogHeaderSearchBtn");
+
+let searchMatches = [];
+let currentMatchIdx = -1;
+
+function updateSearchNavigationState() {
+	const hasMatches = searchMatches.length > 0;
+	if (messageSearchPrevBtnEl) {
+		messageSearchPrevBtnEl.disabled = !hasMatches;
+	}
+	if (messageSearchNextBtnEl) {
+		messageSearchNextBtnEl.disabled = !hasMatches;
+	}
+}
+
+
+function updateSearchMatchInfo() {
+	if (!messageSearchMatchInfoEl) {
+		return;
+	}
+
+	if (!searchMatches.length || currentMatchIdx < 0) {
+		messageSearchMatchInfoEl.textContent = "0/0";
+		return;
+	}
+
+	messageSearchMatchInfoEl.textContent = `${currentMatchIdx + 1}/${searchMatches.length}`;
+}
+
+function setCurrentSearchMatch(index, { scroll = true } = {}) {
+	searchMatches.forEach((match) => {
+		match.classList.remove("search-highlight-current");
+	});
+
+	if (!searchMatches.length) {
+		currentMatchIdx = -1;
+		updateSearchMatchInfo();
+		updateSearchNavigationState();
+		return;
+	}
+
+	const normalizedIndex = ((index % searchMatches.length) + searchMatches.length) % searchMatches.length;
+	currentMatchIdx = normalizedIndex;
+	const activeMatch = searchMatches[currentMatchIdx];
+	activeMatch.classList.add("search-highlight-current");
+	updateSearchMatchInfo();
+	updateSearchNavigationState();
+
+	if (scroll) {
+		activeMatch.scrollIntoView({ behavior: "smooth", block: "center" });
+	}
+}
+
+function refreshMessageSearch({ scrollToActive = false, resetIndex = false } = {}) {
+	if (!messageSearchBarEl || messageSearchBarEl.hidden) {
+		return;
+	}
+
+	const query = messageSearchInputEl ? messageSearchInputEl.value.trim() : "";
+	if (!query) {
+	clearMessageHighlights();
+	searchMatches = [];
+	currentMatchIdx = -1;
+		updateSearchMatchInfo();
+		updateSearchNavigationState();
+		return;
+	}
+
+	const previousIndex = resetIndex ? 0 : currentMatchIdx;
+	searchMatches = highlightMessageMatches(query);
+	if (!searchMatches.length) {
+		currentMatchIdx = -1;
+		updateSearchMatchInfo();
+		updateSearchNavigationState();
+		return;
+	}
+
+	const nextIndex = previousIndex >= 0 ? Math.min(previousIndex, searchMatches.length - 1) : 0;
+	setCurrentSearchMatch(nextIndex, { scroll: scrollToActive });
+}
+
+
+function openMessageSearchBar() {
+	if (!messageSearchBarEl || !dialogHeaderSearchBtnEl) {
+		return;
+	}
+
+	dialogHeaderSearchBtnEl.hidden = true;
+	messageSearchBarEl.hidden = false;
+	window.requestAnimationFrame(() => {
+		if (messageSearchInputEl) {
+			messageSearchInputEl.focus();
+			messageSearchInputEl.select();
+		}
+	});
+	refreshMessageSearch();
+}
+
+
+function closeMessageSearchBar() {
+	if (!messageSearchBarEl || !dialogHeaderSearchBtnEl) {
+		return;
+	}
+
+	messageSearchBarEl.hidden = true;
+	dialogHeaderSearchBtnEl.hidden = false;
+	if (messageSearchInputEl) {
+		messageSearchInputEl.value = "";
+	}
+	clearMessageHighlights();
+	searchMatches = [];
+	currentMatchIdx = -1;
+	updateSearchMatchInfo();
+	updateSearchNavigationState();
+	dialogHeaderSearchBtnEl.focus();
+}
+
+
+function runMessageSearch() {
+	refreshMessageSearch({ scrollToActive: true, resetIndex: true });
+	if (!searchMatches.length) {
+		updateSearchMatchInfo();
+	}
+}
+
+
+function gotoPrevMatch() {
+	if (!searchMatches.length) {
+		return;
+	}
+
+	setCurrentSearchMatch(currentMatchIdx - 1);
+}
+
+function gotoNextMatch() {
+	if (!searchMatches.length) {
+		return;
+	}
+
+	setCurrentSearchMatch(currentMatchIdx + 1);
+}
+
+if (dialogHeaderSearchBtnEl) {
+	dialogHeaderSearchBtnEl.addEventListener("click", openMessageSearchBar);
+}
+if (closeMessageSearchBtnEl) {
+	closeMessageSearchBtnEl.addEventListener("click", closeMessageSearchBar);
+}
+if (messageSearchStartBtnEl) {
+	messageSearchStartBtnEl.addEventListener("click", runMessageSearch);
+}
+if (messageSearchInputEl) {
+	messageSearchInputEl.addEventListener("keydown", (event) => {
+		if (event.key === "Enter") {
+			event.preventDefault();
+			runMessageSearch();
+		}
+
+		if (event.key === "Escape") {
+			event.preventDefault();
+			closeMessageSearchBar();
+		}
+	});
+}
+if (messageSearchPrevBtnEl) {
+	messageSearchPrevBtnEl.addEventListener("click", gotoPrevMatch);
+}
+if (messageSearchNextBtnEl) {
+	messageSearchNextBtnEl.addEventListener("click", gotoNextMatch);
+}
+
+updateSearchMatchInfo();
+updateSearchNavigationState();
 // ====== Storage keys ======
 const STORAGE_KEY = "llm-dialog-sessions-v1";
 const ACTIVE_KEY = "llm-dialog-active-session";
@@ -459,6 +745,7 @@ function renderMessages() {
 	}
 
 	messagesEl.innerHTML = parts.join("");
+	clearMessageHighlights();
 	if (typeof window.enhanceMarkdownContent === "function") {
 		window.enhanceMarkdownContent(messagesEl);
 	}
@@ -466,6 +753,7 @@ function renderMessages() {
 		window.applyMarkdownCodeHighlight(messagesEl);
 	}
 	messagesEl.scrollTop = messagesEl.scrollHeight;
+	refreshMessageSearch({ scrollToActive: currentMatchIdx >= 0 });
 }
 
 function renderAll() {
@@ -829,7 +1117,9 @@ if (dialogHeaderMenuBtnEl && dialogHeaderMenuEl) {
 	document.addEventListener("click", (e) => {
 		if (!dialogHeaderMenuEl.contains(e.target) && e.target !== dialogHeaderMenuBtnEl) {
 			dialogHeaderMenuEl.hidden = true;
-			if (dialogHeaderMenuBtnEl) dialogHeaderMenuBtnEl.setAttribute("aria-expanded", "false");
+			if (dialogHeaderMenuBtnEl) {
+				dialogHeaderMenuBtnEl.setAttribute("aria-expanded", "false");
+			}
 		}
 	});
 
@@ -841,14 +1131,18 @@ if (dialogHeaderMenuBtnEl && dialogHeaderMenuEl) {
 				// Always close the menu if user cancels, to prevent repeated popups
 				if (dialogHeaderMenuEl) {
 					dialogHeaderMenuEl.hidden = true;
-					if (dialogHeaderMenuBtnEl) dialogHeaderMenuBtnEl.setAttribute("aria-expanded", "false");
+					if (dialogHeaderMenuBtnEl) {
+						dialogHeaderMenuBtnEl.setAttribute("aria-expanded", "false");
+					}
 				}
 				return;
 			}
 			void resetActiveSessionContext();
 			if (dialogHeaderMenuEl) {
 				dialogHeaderMenuEl.hidden = true;
-				if (dialogHeaderMenuBtnEl) dialogHeaderMenuBtnEl.setAttribute("aria-expanded", "false");
+				if (dialogHeaderMenuBtnEl) {
+					dialogHeaderMenuBtnEl.setAttribute("aria-expanded", "false");
+				}
 			}
 		});
 	}
@@ -859,11 +1153,15 @@ if (dialogHeaderMenuBtnEl && dialogHeaderMenuEl) {
 if (clearSessionHistoryBtnEl) {
 	clearSessionHistoryBtnEl.addEventListener("click", () => {
 		const ok = window.confirm("Are you sure you want to clear all messages in this session?");
-		if (!ok) return;
+		if (!ok) {
+			return;
+		}
 		void clearActiveSessionHistory();
 		if (dialogHeaderMenuEl) {
 			dialogHeaderMenuEl.hidden = true;
-			if (dialogHeaderMenuBtnEl) dialogHeaderMenuBtnEl.setAttribute("aria-expanded", "false");
+			if (dialogHeaderMenuBtnEl) {
+				dialogHeaderMenuBtnEl.setAttribute("aria-expanded", "false");
+			}
 		}
 	});
 }

@@ -74,6 +74,17 @@
 					</div>
 				</div>
 				<div class="dialog-header-actions">
+					<button class="dialog-header-search-btn" id="dialogHeaderSearchBtn" type="button" aria-label="Search" title="Search">
+						<span class="dialog-header-search-icon" aria-hidden="true"></span>
+					</button>
+					<div class="dialog-header-search-bar" id="messageSearchBar" hidden>
+						<button class="dialog-header-search-action" id="messageSearchStartBtn" type="button">Search</button>
+						<input class="dialog-header-search-input" id="messageSearchInput" type="text" placeholder="Search messages" autocomplete="off" />
+						<button class="dialog-header-search-nav" id="messageSearchPrevBtn" type="button" aria-label="Previous match">Prev</button>
+						<span class="dialog-header-search-info" id="messageSearchMatchInfo">0/0</span>
+						<button class="dialog-header-search-nav" id="messageSearchNextBtn" type="button" aria-label="Next match">Next</button>
+						<button class="dialog-header-search-exit" id="closeMessageSearchBtn" type="button" aria-label="Exit search" title="Exit search">Exit</button>
+					</div>
 					<div class="copilot-share-menu">
 						<button
 							class="copilot-share-menu-trigger"
