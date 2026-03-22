@@ -35,7 +35,6 @@ let isSidebarCollapsed = false;
 // ====== DOM references ======
 const appEl = document.getElementById("app");
 const newSessionBtnEl = document.getElementById("newSessionBtn");
-const sessionCountLabelEl = document.getElementById("sessionCountLabel");
 const sessionListEl = document.getElementById("sessionList");
 const dialogTitleEl = document.getElementById("dialogTitle");
 const dialogSubtitleEl = document.getElementById("dialogSubtitle");
@@ -48,6 +47,66 @@ const cancelStreamBtnEl = document.getElementById("cancelStreamBtn");
 const sendBtnEl = document.getElementById("sendBtn");
 const mobileBackBtnEl = document.getElementById("mobileBackBtn");
 const sidebarToggleBtnEl = document.getElementById("sidebarToggleBtn");
+const sidebarEl = document.querySelector(".sidebar");
+
+let sessionHoverPopupEl = null;
+
+function ensureSessionHoverPopup() {
+	if (sessionHoverPopupEl) {
+		return sessionHoverPopupEl;
+	}
+
+	const popup = document.createElement("div");
+	popup.className = "session-hover-float";
+	popup.hidden = true;
+	document.body.appendChild(popup);
+	sessionHoverPopupEl = popup;
+	return popup;
+}
+
+function hideSessionHoverPopup() {
+	if (!sessionHoverPopupEl) {
+		return;
+	}
+	sessionHoverPopupEl.classList.remove("show");
+	sessionHoverPopupEl.hidden = true;
+}
+
+function showSessionHoverPopup(item) {
+	if (!appEl.classList.contains("sidebar-collapsed") || !sidebarEl) {
+		hideSessionHoverPopup();
+		return;
+	}
+
+	const title = item.querySelector(".session-hover-title")?.textContent?.trim() || "";
+	const preview = item.querySelector(".session-hover-text")?.textContent?.trim() || "";
+	if (!title && !preview) {
+		hideSessionHoverPopup();
+		return;
+	}
+
+	const popup = ensureSessionHoverPopup();
+	const titleMarkup = title ? `<div class="session-hover-title">${escapeHtml(title)}</div>` : "";
+	const previewMarkup = preview ? `<div class="session-hover-text">${escapeHtml(preview)}</div>` : "";
+	popup.innerHTML = `${titleMarkup}${previewMarkup}`;
+
+	const rect = item.getBoundingClientRect();
+	const left = rect.right + 10;
+	const popupWidth = 220;
+	const popupHalfHeight = 38;
+	const minTop = 8;
+	const maxTop = window.innerHeight - popupHalfHeight - 8;
+	const top = Math.max(minTop, Math.min(rect.top + rect.height / 2 - popupHalfHeight, maxTop));
+
+	popup.style.left = `${Math.min(left, window.innerWidth - popupWidth - 8)}px`;
+	popup.style.top = `${top}px`;
+	popup.hidden = false;
+	window.requestAnimationFrame(() => {
+		if (popup) {
+			popup.classList.add("show");
+		}
+	});
+}
 
 // ====== Utility functions ======
 function formatTime(timestamp) {
@@ -124,6 +183,7 @@ function applySidebarState() {
 function toggleSidebarCollapse() {
 	isSidebarCollapsed = !isSidebarCollapsed;
 	applySidebarState();
+	hideSessionHoverPopup();
 	saveSidebarState();
 }
 
@@ -313,27 +373,33 @@ function hideTypingIndicator(sessionId) {
 // ====== Rendering ======
 function renderSessionList() {
 	sortSessionsByLatest();
-	sessionCountLabelEl.textContent = `${sessions.length} sessions`;
 
 	sessionListEl.innerHTML = sessions
 		.map((session) => {
 			const latest = session.messages[session.messages.length - 1];
 			const activeClass = session.id === activeSessionId ? "active" : "";
+			const safeName = escapeHtml(session.name);
 			const iconText = escapeHtml(session.name.slice(0, 1).toUpperCase() || "S");
+			const previewText = getPreview(session).replace(/\s+/g, " ").trim();
+			const safePreview = escapeHtml(previewText);
 
 			return `
-				<li class="session-item ${activeClass}" data-id="${session.id}" role="button" tabindex="0" aria-label="Open ${escapeHtml(session.name)}">
+				<li class="session-item ${activeClass}" data-id="${session.id}" role="button" tabindex="0" aria-label="Open ${safeName}">
 					<div class="session-icon">${iconText}</div>
 					<div class="session-main">
 						<div class="session-top">
-							<span class="session-name">${escapeHtml(session.name)}</span>
+							<span class="session-name">${safeName}</span>
 							<span class="session-time">${latest ? formatTime(latest.timestamp) : ""}</span>
 						</div>
-						<div class="session-preview">${escapeHtml(getPreview(session))}</div>
+						<div class="session-preview">${safePreview}</div>
 					</div>
 					<div class="session-actions">
 						<button class="action-btn rename" type="button" data-action="rename" data-id="${session.id}" aria-label="Rename session">✎</button>
 						<button class="action-btn delete" type="button" data-action="delete" data-id="${session.id}" aria-label="Delete session">🗑</button>
+					</div>
+					<div class="session-hover-preview" aria-hidden="true">
+						<div class="session-hover-title">${safeName}</div>
+						<div class="session-hover-text">${safePreview}</div>
 					</div>
 				</li>
 			`;
@@ -343,16 +409,13 @@ function renderSessionList() {
 
 function renderMessages() {
 	const active = getActiveSession();
-	const subtitleText = "Enjoy your session with Copilot Share!";
 	if (!active) {
 		dialogTitleEl.textContent = "Select a session";
-		dialogSubtitleEl.textContent = subtitleText;
 		messagesEl.innerHTML = `<div class="empty">Create or select a session to start your dialog</div>`;
 		return;
 	}
 
 	dialogTitleEl.textContent = active.name;
-	dialogSubtitleEl.textContent = subtitleText;
 
 	if (!active.messages.length) {
 		messagesEl.innerHTML = `<div class="empty">No messages yet. Type below to start.</div>`;
@@ -694,6 +757,62 @@ sessionListEl.addEventListener("keydown", (event) => {
 	openSession(item.dataset.id, true);
 });
 
+sessionListEl.addEventListener("pointerover", (event) => {
+	const target = event.target;
+	if (!(target instanceof HTMLElement)) {
+		return;
+	}
+	const item = target.closest(".session-item");
+	if (!item) {
+		return;
+	}
+	showSessionHoverPopup(item);
+});
+
+sessionListEl.addEventListener("pointerout", (event) => {
+	const target = event.target;
+	if (!(target instanceof HTMLElement)) {
+		return;
+	}
+	const item = target.closest(".session-item");
+	if (!item) {
+		return;
+	}
+	const related = event.relatedTarget;
+	if (related instanceof Node && item.contains(related)) {
+		return;
+	}
+	hideSessionHoverPopup();
+});
+
+sessionListEl.addEventListener("focusin", (event) => {
+	const target = event.target;
+	if (!(target instanceof HTMLElement)) {
+		return;
+	}
+	const item = target.closest(".session-item");
+	if (!item) {
+		return;
+	}
+	showSessionHoverPopup(item);
+});
+
+sessionListEl.addEventListener("focusout", (event) => {
+	const target = event.target;
+	if (!(target instanceof HTMLElement)) {
+		return;
+	}
+	const item = target.closest(".session-item");
+	if (!item) {
+		return;
+	}
+	const related = event.relatedTarget;
+	if (related instanceof Node && item.contains(related)) {
+		return;
+	}
+	hideSessionHoverPopup();
+});
+
 sendBtnEl.addEventListener("click", sendUserMessage);
 
 if (resetContextBtnEl) {
@@ -772,7 +891,10 @@ window.addEventListener("resize", () => {
 		appEl.classList.remove("show-dialog");
 	}
 	applySidebarState();
+	hideSessionHoverPopup();
 });
+
+window.addEventListener("scroll", hideSessionHoverPopup, { passive: true });
 
 if (sidebarToggleBtnEl) {
 	sidebarToggleBtnEl.addEventListener("click", toggleSidebarCollapse);

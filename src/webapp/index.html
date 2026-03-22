@@ -22,10 +22,16 @@
 		<aside class="sidebar">
 			<div class="copilot-share" id="copilotShareBox">
 				<div class="copilot-share-header">
-					<div class="copilot-share-label">Copilot Share</div>
+					<div class="copilot-share-meta">
+						<div class="copilot-share-label">Copilot Share</div>
+						<div class="dialog-subtitle" id="dialogSubtitle">Copilot Web for Everyone</div>
+					</div>
 					<div class="copilot-share-actions">
 						<button class="sidebar-toggle-btn" id="sidebarToggleBtn" type="button" aria-label="Collapse sidebar" title="Collapse sidebar">
 							<span class="sidebar-toggle-icon" aria-hidden="true"></span>
+						</button>
+						<button class="primary-btn" id="newSessionBtn" type="button" aria-label="New session" title="New session">
+							<span class="new-session-icon" aria-hidden="true"></span>
 						</button>
 						<div class="copilot-share-menu">
 							<button
@@ -54,11 +60,6 @@
 					</div>
 				</div>
 			</div>
-			<div class="sidebar-header">
-				<div class="sidebar-title">Sessions</div>
-				<button class="primary-btn" id="newSessionBtn" type="button">+ New</button>
-			</div>
-			<div class="session-count" id="sessionCountLabel">0 sessions</div>
 			<ul class="session-list" id="sessionList"></ul>
 		</aside>
 
@@ -68,7 +69,6 @@
 					<button class="mobile-back" id="mobileBackBtn" aria-label="Back to sessions">← Back</button>
 					<div>
 						<div class="dialog-title-text" id="dialogTitle">Select a session</div>
-						<div class="dialog-subtitle" id="dialogSubtitle">Enjoy your session with Copilot Share</div>
 					</div>
 				</div>
 			</header>
