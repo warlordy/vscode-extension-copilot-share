@@ -376,7 +376,7 @@ body {
 	overflow: visible;
 }
 
-.app.sidebar-collapsed .copilot-share-menu-popup {
+.app.sidebar-collapsed .copilot-share-actions .copilot-share-menu-popup {
 	top: 0;
 	left: calc(100% + 8px);
 	right: auto;
