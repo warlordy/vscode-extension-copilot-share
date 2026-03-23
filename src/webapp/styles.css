@@ -1379,23 +1379,25 @@ body {
 
 .model-picker {
 	position: relative;
-	min-width: 220px;
+	width: fit-content;
+	max-width: min(70vw, 260px);
 }
 
 .model-picker-trigger {
 	border: 1px solid var(--line);
 	border-radius: 10px;
-	padding: 6px 10px;
+	padding: 6px 8px;
 	font-size: 11px;
 	font-family: inherit;
 	background: #fff;
 	color: #334155;
-	min-width: 220px;
+	width: fit-content;
+	max-width: min(70vw, 260px);
 	height: 32px;
 	display: grid;
 	grid-template-columns: 1fr auto;
 	align-items: center;
-	column-gap: 10px;
+	column-gap: 6px;
 	cursor: pointer;
 }
 
