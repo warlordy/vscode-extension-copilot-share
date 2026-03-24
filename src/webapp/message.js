@@ -1,7 +1,8 @@
 let modelPickerState = {
 	items: [],
 	isOpen: false,
-	searchQuery: ""
+	searchQuery: "",
+	isLocked: false
 };
 const activeStreamControllers = new Map();
 
@@ -118,6 +119,10 @@ function writeActiveSessionModelId(modelId) {
 	window.setActiveSessionModelId(modelId);
 }
 
+function isModelPickerInteractionBlocked() {
+	return modelPickerState.isLocked;
+}
+
 function setModelPickerSelection(selectedId) {
 	const triggerNameEl = document.getElementById("modelPickerName");
 	const popupEl = document.getElementById("modelPickerPopup");
@@ -198,6 +203,9 @@ function renderModelPickerList() {
 
 			button.append(nameEl);
 			button.addEventListener("click", () => {
+				if (isModelPickerInteractionBlocked()) {
+					return;
+				}
 				setModelPickerSelection(item.id);
 				writeActiveSessionModelId(item.id);
 				closeModelPicker();
@@ -247,6 +255,10 @@ function closeModelPicker() {
 }
 
 function openModelPicker() {
+	if (isModelPickerInteractionBlocked()) {
+		return;
+	}
+
 	const triggerEl = document.getElementById("modelPickerTrigger");
 	const popupEl = document.getElementById("modelPickerPopup");
 	if (!(triggerEl instanceof HTMLButtonElement) || !(popupEl instanceof HTMLElement)) {
@@ -264,6 +276,19 @@ function openModelPicker() {
 	triggerEl.setAttribute("aria-expanded", "true");
 	popupEl.hidden = false;
 }
+
+window.setModelPickerLocked = function setModelPickerLocked(locked) {
+	modelPickerState.isLocked = Boolean(locked);
+	const triggerEl = document.getElementById("modelPickerTrigger");
+	if (triggerEl instanceof HTMLButtonElement) {
+		triggerEl.disabled = modelPickerState.isLocked;
+		triggerEl.setAttribute("aria-disabled", modelPickerState.isLocked ? "true" : "false");
+	}
+
+	if (modelPickerState.isLocked && modelPickerState.isOpen) {
+		closeModelPicker();
+	}
+};
 
 function renderModelPicker(models, selectedId) {
 	const popupEl = document.getElementById("modelPickerPopup");
@@ -407,7 +432,7 @@ function initModelSelect() {
 	}
 
 	triggerEl.addEventListener("click", () => {
-		if (selectEl.disabled || !modelPickerState.items.length) {
+		if (selectEl.disabled || !modelPickerState.items.length || isModelPickerInteractionBlocked()) {
 			return;
 		}
 		if (modelPickerState.isOpen) {

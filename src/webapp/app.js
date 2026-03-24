@@ -290,6 +290,7 @@ const DEFAULT_SESSIONS = [
 	{
 		id: "s1",
 		name: "Project Planning",
+		isOpen: true,
 		messages: [
 			{ id: "m1", role: "user", text: "Help me break down this project into milestones.", timestamp: Date.now() - 1000 * 60 * 28 },
 			{ id: "m2", role: "agent", text: "Sure. We can split it into discovery, implementation, and validation phases.", timestamp: Date.now() - 1000 * 60 * 27 }
@@ -298,6 +299,7 @@ const DEFAULT_SESSIONS = [
 	{
 		id: "s2",
 		name: "Prompt Experiments",
+		isOpen: true,
 		messages: [
 			{ id: "m3", role: "user", text: "What is a good prompt template for code review?", timestamp: Date.now() - 1000 * 60 * 120 }
 		]
@@ -431,6 +433,45 @@ function requestMenuPopupClamp() {
 }
 
 window.requestMenuPopupClamp = requestMenuPopupClamp;
+
+function closeAllSessionActionMenus() {
+	const popups = document.querySelectorAll(".session-more-menu-popup");
+	popups.forEach((popupEl) => {
+		popupEl.hidden = true;
+	});
+
+	const triggers = document.querySelectorAll(".session-actions .copilot-share-menu-trigger");
+	triggers.forEach((triggerEl) => {
+		if (triggerEl instanceof HTMLElement) {
+			triggerEl.setAttribute("aria-expanded", "false");
+		}
+	});
+}
+
+function toggleSessionActionMenu(triggerEl) {
+	if (!(triggerEl instanceof HTMLElement)) {
+		return;
+	}
+
+	const menuBox = triggerEl.closest(".copilot-share-menu");
+	if (!(menuBox instanceof HTMLElement)) {
+		return;
+	}
+
+	const popupEl = menuBox.querySelector(".session-more-menu-popup");
+	if (!(popupEl instanceof HTMLElement)) {
+		return;
+	}
+
+	const expanded = triggerEl.getAttribute("aria-expanded") === "true";
+	closeAllSessionActionMenus();
+
+	if (!expanded) {
+		popupEl.hidden = false;
+		triggerEl.setAttribute("aria-expanded", "true");
+		requestMenuPopupClamp();
+	}
+}
 
 function showSessionHoverPopup(item) {
 	if (!appEl.classList.contains("sidebar-collapsed") || !sidebarEl) {
@@ -832,6 +873,30 @@ function saveSidebarState() {
 	localStorage.setItem(SIDEBAR_KEY, isSidebarCollapsed ? "1" : "0");
 }
 
+function normalizeSessionState(session) {
+	if (!session || typeof session !== "object") {
+		return;
+	}
+
+	if (typeof session.isOpen !== "boolean") {
+		session.isOpen = true;
+	}
+}
+
+function isSessionLocked(sessionId) {
+	const target = sessions.find((item) => item.id === sessionId);
+	if (!target) {
+		return false;
+	}
+
+	normalizeSessionState(target);
+	return target.isOpen === false;
+}
+
+function isActiveSessionLocked() {
+	return Boolean(activeSessionId) && isSessionLocked(activeSessionId);
+}
+
 function loadState() {
 	// Load saved sessions and active session on app launch.
 	const stored = localStorage.getItem(STORAGE_KEY);
@@ -844,6 +909,10 @@ function loadState() {
 	} else {
 		sessions = structuredClone(DEFAULT_SESSIONS);
 	}
+
+	sessions.forEach((session) => {
+		normalizeSessionState(session);
+	});
 
 	const storedActive = localStorage.getItem(ACTIVE_KEY);
 	const found = sessions.find((item) => item.id === storedActive);
@@ -961,6 +1030,7 @@ function createSession(name) {
 	const newSession = {
 		id: `s_${Date.now()}_${Math.random().toString(16).slice(2, 7)}`,
 		name: title,
+		isOpen: true,
 		modelId: "",
 		messages: []
 	};
@@ -972,11 +1042,15 @@ function createSession(name) {
 }
 
 function renameSession(sessionId) {
+	if (isSessionLocked(sessionId)) {
+		return;
+	}
+
 	const target = sessions.find((item) => item.id === sessionId);
 	if (!target) {
 		return;
 	}
-	const next = window.prompt("Rename session", target.name);
+	const next = window.prompt("Rename Session", target.name);
 	if (next === null) {
 		return;
 	}
@@ -989,7 +1063,23 @@ function renameSession(sessionId) {
 	saveState();
 }
 
+function toggleSessionOpenState(sessionId) {
+	const target = sessions.find((item) => item.id === sessionId);
+	if (!target) {
+		return;
+	}
+
+	normalizeSessionState(target);
+	target.isOpen = !target.isOpen;
+	renderAll();
+	saveState();
+}
+
 function deleteSession(sessionId) {
+	if (isSessionLocked(sessionId)) {
+		return;
+	}
+
 	const target = sessions.find((item) => item.id === sessionId);
 	if (!target) {
 		return;
@@ -1067,10 +1157,16 @@ function renderSessionList() {
 		.map((session) => {
 			const latest = session.messages[session.messages.length - 1];
 			const activeClass = session.id === activeSessionId ? "active" : "";
+			const isOpen = session.isOpen !== false;
+			const isLocked = !isOpen;
+			const lockTitle = isOpen ? "Lock session" : "Unlock session";
+			const lockIconClass = isOpen ? "session-lock-icon is-open" : "session-lock-icon is-closed";
+			const moreTitle = isLocked ? "Session is locked" : "More Actions";
 			const safeName = escapeHtml(session.name);
 			const iconText = escapeHtml(session.name.slice(0, 1).toUpperCase() || "S");
 			const previewText = getPreview(session).replace(/\s+/g, " ").trim();
 			const safePreview = escapeHtml(previewText);
+			const sessionMenuId = `sessionActionMenu_${session.id}`;
 
 			return `
 				<li class="session-item ${activeClass}" data-id="${session.id}" role="button" tabindex="0" aria-label="Open ${safeName}">
@@ -1083,8 +1179,24 @@ function renderSessionList() {
 						<div class="session-preview">${safePreview}</div>
 					</div>
 					<div class="session-actions">
-						<button class="action-btn rename" type="button" data-action="rename" data-id="${session.id}" aria-label="Rename session">✎</button>
-						<button class="action-btn delete" type="button" data-action="delete" data-id="${session.id}" aria-label="Delete session">🗑</button>
+						<div class="copilot-share-menu session-item-menu">
+							<button class="action-btn lock" type="button" data-action="toggle-lock" data-id="${session.id}" aria-label="${lockTitle}" title="${lockTitle}">
+								<span class="${lockIconClass}" aria-hidden="true"></span>
+							</button>
+							<button class="action-btn more copilot-share-menu-trigger" type="button" data-action="more" data-id="${session.id}" aria-haspopup="menu" aria-expanded="false" aria-controls="${sessionMenuId}" aria-label="${moreTitle}" title="${moreTitle}" ${isLocked ? "disabled" : ""}>
+								<span class="session-more-icon" aria-hidden="true"></span>
+							</button>
+							<div class="copilot-share-menu-popup session-more-menu-popup" id="${sessionMenuId}" role="menu" hidden>
+								<button class="copilot-share-menu-item action-btn rename" type="button" data-action="rename" data-id="${session.id}" role="menuitem" aria-label="Rename Session" ${isLocked ? "disabled" : ""}>
+									<span class="copilot-share-menu-item-icon session-menu-glyph" aria-hidden="true">✎</span>
+									<span class="copilot-share-menu-item-text">Rename Session</span>
+								</button>
+								<button class="copilot-share-menu-item action-btn delete" type="button" data-action="delete" data-id="${session.id}" role="menuitem" aria-label="Delete Session" ${isLocked ? "disabled" : ""}>
+									<span class="copilot-share-menu-item-icon session-menu-glyph" aria-hidden="true">🗑</span>
+									<span class="copilot-share-menu-item-text">Delete Session</span>
+								</button>
+							</div>
+						</div>
 					</div>
 					<div class="session-hover-preview" aria-hidden="true">
 						<div class="session-hover-title">${safeName}</div>
@@ -1168,27 +1280,50 @@ function renderAll() {
 
 function updateInputActionStates() {
 	const hasActiveSession = Boolean(getActiveSession());
+	const isLocked = hasActiveSession && isActiveSessionLocked();
 	const hasInFlightStream = hasActiveSession
 		&& typeof window.isSessionStreamInFlight === "function"
 		&& window.isSessionStreamInFlight(activeSessionId);
 	if (dialogHeaderExportBtnEl) {
-		dialogHeaderExportBtnEl.disabled = !hasActiveSession;
+		dialogHeaderExportBtnEl.disabled = !hasActiveSession || isLocked;
 	}
 	if (resetContextBtnEl) {
-		resetContextBtnEl.disabled = !hasActiveSession;
+		resetContextBtnEl.disabled = !hasActiveSession || isLocked;
 	}
 	if (clearSessionHistoryBtnEl) {
-		clearSessionHistoryBtnEl.disabled = !hasActiveSession;
+		clearSessionHistoryBtnEl.disabled = !hasActiveSession || isLocked;
+	}
+	if (dialogHeaderMenuBtnEl) {
+		dialogHeaderMenuBtnEl.disabled = !hasActiveSession || isLocked;
+		if (dialogHeaderMenuBtnEl.disabled && dialogHeaderMenuEl) {
+			dialogHeaderMenuEl.hidden = true;
+			dialogHeaderMenuBtnEl.setAttribute("aria-expanded", "false");
+		}
+	}
+	if (dialogHeaderSearchBtnEl) {
+		dialogHeaderSearchBtnEl.disabled = !hasActiveSession;
+		if (dialogHeaderSearchBtnEl.disabled && !messageSearchBarEl?.hidden) {
+			closeMessageSearchBar();
+		}
 	}
 	if (sendBtnEl) {
-		sendBtnEl.disabled = !hasActiveSession;
-		sendBtnEl.textContent = hasInFlightStream ? "Cancel" : "Send";
+		sendBtnEl.disabled = !hasActiveSession || isLocked;
+		sendBtnEl.textContent = hasInFlightStream && !isLocked ? "Cancel" : "Send";
 		sendBtnEl.classList.toggle("is-cancel", hasInFlightStream);
 	}
 	if (promptInputEl) {
+		promptInputEl.disabled = !hasActiveSession || isLocked;
 		promptInputEl.placeholder = hasInFlightStream
 			? "Response is streaming. Press Enter or Cancel to stop."
+			: isLocked
+				? "This session is locked. Unlock it to type."
 			: defaultPromptPlaceholder;
+	}
+	if (modelSelectEl) {
+		modelSelectEl.disabled = !hasActiveSession || isLocked || !modelSelectEl.options.length;
+	}
+	if (typeof window.setModelPickerLocked === "function") {
+		window.setModelPickerLocked(!hasActiveSession || isLocked);
 	}
 }
 
@@ -1217,6 +1352,10 @@ function openSession(sessionId, fromListClick = false) {
 }
 
 function sendUserMessage() {
+	if (isActiveSessionLocked()) {
+		return;
+	}
+
 	if (isActiveSessionStreamInFlight()) {
 		return;
 	}
@@ -1269,6 +1408,9 @@ async function resetActiveSessionContext() {
 	if (!active || !resetContextBtnEl) {
 		return;
 	}
+	if (isActiveSessionLocked()) {
+		return;
+	}
 
 	if (typeof window.resetChatContext !== "function") {
 		console.warn("Reset API is not available.");
@@ -1301,6 +1443,9 @@ async function resetActiveSessionContext() {
 async function clearActiveSessionHistory() {
 	const active = getActiveSession();
 	if (!active || !clearSessionHistoryBtnEl) {
+		return;
+	}
+	if (isActiveSessionLocked()) {
 		return;
 	}
 
@@ -1455,11 +1600,28 @@ sessionListEl.addEventListener("click", (event) => {
 		if (!sessionId) {
 			return;
 		}
+		if (action === "more") {
+			if (isSessionLocked(sessionId)) {
+				return;
+			}
+			toggleSessionActionMenu(actionButton);
+			return;
+		}
+		if (action === "toggle-lock") {
+			toggleSessionOpenState(sessionId);
+			closeAllSessionActionMenus();
+			return;
+		}
 		if (action === "rename") {
 			renameSession(sessionId);
+			closeAllSessionActionMenus();
 		}
 		if (action === "delete") {
 			deleteSession(sessionId);
+			closeAllSessionActionMenus();
+ 		}
+		if (action !== "rename" && action !== "delete") {
+			return;
 		}
 		return;
 	}
@@ -1542,7 +1704,12 @@ sessionListEl.addEventListener("focusout", (event) => {
 sendBtnEl.addEventListener("click", handlePrimaryActionClick);
 
 if (dialogHeaderExportBtnEl) {
-	dialogHeaderExportBtnEl.addEventListener("click", downloadSessionAsMarkdown);
+	dialogHeaderExportBtnEl.addEventListener("click", () => {
+		if (isActiveSessionLocked()) {
+			return;
+		}
+		downloadSessionAsMarkdown();
+	});
 }
 
 
@@ -1568,11 +1735,19 @@ if (dialogHeaderMenuBtnEl && dialogHeaderMenuEl) {
 				dialogHeaderMenuBtnEl.setAttribute("aria-expanded", "false");
 			}
 		}
+
+		const inSessionMenu = e.target instanceof Element && Boolean(e.target.closest(".session-item-menu"));
+		if (!inSessionMenu) {
+			closeAllSessionActionMenus();
+		}
 	});
 
 	// Reset Context button event (now in dialog-header menu) with confirmation
 	if (resetContextBtnEl) {
 		resetContextBtnEl.addEventListener("click", () => {
+			if (isActiveSessionLocked()) {
+				return;
+			}
 			const ok = window.confirm("Are you sure you want to clear the context for this session?");
 			if (!ok) {
 				// Always close the menu if user cancels, to prevent repeated popups
@@ -1599,6 +1774,9 @@ if (dialogHeaderMenuBtnEl && dialogHeaderMenuEl) {
 // Clear Session button event (now in dialog-header menu)
 if (clearSessionHistoryBtnEl) {
 	clearSessionHistoryBtnEl.addEventListener("click", () => {
+		if (isActiveSessionLocked()) {
+			return;
+		}
 		const ok = window.confirm("Are you sure you want to clear all messages in this session?");
 		if (!ok) {
 			return;

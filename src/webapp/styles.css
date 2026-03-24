@@ -931,6 +931,106 @@ body {
 	gap: 4px;
 }
 
+.session-item-menu {
+	position: relative;
+}
+
+.session-more-menu-popup {
+	min-width: 164px;
+	z-index: 10;
+}
+
+.session-more-menu-popup .copilot-share-menu-item.action-btn {
+	padding: 7px 10px;
+	border-radius: 8px;
+	background: transparent;
+	color: #334155;
+	font-size: 12px;
+	font-weight: 600;
+}
+
+.session-more-menu-popup .copilot-share-menu-item.action-btn:hover {
+	background: #eef3f8;
+}
+
+.session-more-menu-popup .copilot-share-menu-item.action-btn.delete {
+	color: #b4232f;
+}
+
+.session-more-menu-popup .copilot-share-menu-item.action-btn.delete:hover {
+	background: #fdeced;
+}
+
+.session-menu-glyph {
+	font-size: 13px;
+	line-height: 1;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	background-image: none !important;
+}
+
+.action-btn.more {
+	padding: 6px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	background: #eef4f8;
+	color: #4f6275;
+}
+
+.action-btn.more:hover {
+	background: #e4edf4;
+}
+
+.action-btn.more:disabled,
+.action-btn.lock:disabled,
+.session-more-menu-popup .copilot-share-menu-item.action-btn:disabled {
+	opacity: 0.55;
+	cursor: not-allowed;
+	pointer-events: none;
+}
+
+.action-btn.lock {
+	padding: 6px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	background: #eef4f8;
+	color: #4f6275;
+}
+
+.action-btn.lock:hover {
+	background: #e4edf4;
+}
+
+.session-more-icon {
+	width: 12px;
+	height: 12px;
+	display: inline-block;
+	background-image: url("./icons/menu.svg");
+	background-repeat: no-repeat;
+	background-position: center;
+	background-size: 12px 12px;
+}
+
+.session-lock-icon {
+	width: 12px;
+	height: 12px;
+	display: inline-block;
+	background-repeat: no-repeat;
+	background-position: center;
+	background-size: 12px 12px;
+}
+
+.session-lock-icon.is-open {
+	background-image: url("./icons/lock-off.svg");
+}
+
+.session-lock-icon.is-closed {
+	background-image: url("./icons/lock-on.svg");
+}
+
 .action-btn {
 	padding: 6px 7px;
 	font-size: 12px;
@@ -940,6 +1040,27 @@ body {
 
 .action-btn:hover {
 	background: #e3e8f2;
+}
+
+.action-btn:disabled,
+.dialog-header-search-btn:disabled,
+.dialog-header-export-btn:disabled,
+.copilot-share-menu-trigger:disabled,
+.send-btn:disabled,
+.model-picker-trigger:disabled,
+.prompt-input:disabled {
+	opacity: 0.6;
+	cursor: not-allowed;
+}
+
+.dialog-header-search-btn:disabled:hover,
+.dialog-header-export-btn:disabled:hover,
+.copilot-share-menu-trigger:disabled:hover,
+.send-btn:disabled:hover,
+.model-picker-trigger:disabled:hover,
+.action-btn:disabled:hover {
+	background: inherit;
+	border-color: inherit;
 }
 
 .action-btn.delete {
@@ -1565,6 +1686,11 @@ body {
 	background: #f9dde0;
 }
 
+.send-btn:disabled.is-cancel {
+	background: #fdeced;
+	color: #b4232f;
+}
+
 .clear-history-btn {
 	border: none;
 	border-radius: 10px;
@@ -1629,6 +1755,12 @@ body {
 .prompt-input:focus {
 	border-color: #9ed7b8;
 	box-shadow: 0 0 0 3px rgba(7, 193, 96, 0.16);
+}
+
+.prompt-input:disabled {
+	background: #f6f8fb;
+	color: #7d8592;
+	box-shadow: none;
 }
 
 @media (max-width: 900px) {
