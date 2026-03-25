@@ -317,6 +317,7 @@ updateSearchNavigationState();
 const STORAGE_KEY = "llm-dialog-sessions-v1";
 const ACTIVE_KEY = "llm-dialog-active-session";
 const SIDEBAR_KEY = "llm-dialog-sidebar-collapsed-v1";
+const CUSTOM_ORDER_KEY = "llm-dialog-session-custom-order-v1";
 
 // ====== Seed data for first launch ======
 const DEFAULT_SESSIONS = [
@@ -348,6 +349,11 @@ let promptHistorySessionId = null;
 let promptHistoryIndex = -1;
 let promptHistoryDraft = "";
 let isSidebarCollapsed = false;
+let hasCustomSessionOrder = false;
+let draggingSessionId = null;
+let dragDropSessionId = null;
+let dragDropInsertAfter = false;
+let suppressSessionClickUntil = 0;
 
 // ====== DOM references ======
 const appEl = document.getElementById("app");
@@ -957,6 +963,7 @@ function escapeHtml(value) {
 function saveState() {
 	// Persist sessions + messages on each change.
 	localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions));
+	localStorage.setItem(CUSTOM_ORDER_KEY, hasCustomSessionOrder ? "1" : "0");
 	if (activeSessionId) {
 		localStorage.setItem(ACTIVE_KEY, activeSessionId);
 	}
@@ -1012,6 +1019,7 @@ function loadState() {
 	activeSessionId = found ? found.id : sessions[0]?.id || null;
 
 	isSidebarCollapsed = localStorage.getItem(SIDEBAR_KEY) === "1";
+	hasCustomSessionOrder = localStorage.getItem(CUSTOM_ORDER_KEY) === "1";
 }
 
 function applySidebarState() {
@@ -1111,11 +1119,44 @@ function getPreview(session) {
 }
 
 function sortSessionsByLatest() {
+	if (hasCustomSessionOrder) {
+		return;
+	}
+
 	sessions.sort((a, b) => {
 		const aTime = a.messages[a.messages.length - 1]?.timestamp || 0;
 		const bTime = b.messages[b.messages.length - 1]?.timestamp || 0;
 		return bTime - aTime;
 	});
+}
+
+function clearSessionDropMarkers() {
+	const items = sessionListEl.querySelectorAll(".session-item");
+	items.forEach((itemEl) => {
+		itemEl.classList.remove("drop-before", "drop-after", "is-dragging");
+	});
+}
+
+function moveSessionInList(sessionId, targetSessionId, insertAfter) {
+	if (!sessionId || !targetSessionId || sessionId === targetSessionId) {
+		return false;
+	}
+
+	const fromIndex = sessions.findIndex((item) => item.id === sessionId);
+	const targetIndex = sessions.findIndex((item) => item.id === targetSessionId);
+	if (fromIndex < 0 || targetIndex < 0) {
+		return false;
+	}
+
+	const [moved] = sessions.splice(fromIndex, 1);
+	let insertionIndex = targetIndex + (insertAfter ? 1 : 0);
+	if (fromIndex < insertionIndex) {
+		insertionIndex -= 1;
+	}
+
+	insertionIndex = Math.max(0, Math.min(insertionIndex, sessions.length));
+	sessions.splice(insertionIndex, 0, moved);
+	return true;
 }
 
 function createSession(name) {
@@ -1262,7 +1303,7 @@ function renderSessionList() {
 			const sessionMenuId = `sessionActionMenu_${session.id}`;
 
 			return `
-				<li class="session-item ${activeClass}" data-id="${session.id}" role="button" tabindex="0" aria-label="Open ${safeName}">
+				<li class="session-item ${activeClass}" data-id="${session.id}" role="button" tabindex="0" aria-label="Open ${safeName}" draggable="true">
 					<div class="session-icon">${iconText}</div>
 					<div class="session-main">
 						<div class="session-top">
@@ -1696,6 +1737,11 @@ if (exportAllSessionBtnEl) {
 }
 
 sessionListEl.addEventListener("click", (event) => {
+	if (Date.now() < suppressSessionClickUntil) {
+		event.preventDefault();
+		return;
+	}
+
 	const target = event.target;
 	if (!(target instanceof HTMLElement)) {
 		return;
@@ -1740,6 +1786,108 @@ sessionListEl.addEventListener("click", (event) => {
 		return;
 	}
 	openSession(item.dataset.id, true);
+});
+
+sessionListEl.addEventListener("dragstart", (event) => {
+	const target = event.target;
+	if (!(target instanceof HTMLElement)) {
+		return;
+	}
+
+	if (target.closest("button") || target.closest("[role='menuitem']")) {
+		event.preventDefault();
+		return;
+	}
+
+	const item = target.closest(".session-item");
+	if (!(item instanceof HTMLElement)) {
+		return;
+	}
+
+	const sessionId = item.dataset.id;
+	if (!sessionId || !event.dataTransfer) {
+		return;
+	}
+
+	draggingSessionId = sessionId;
+	dragDropSessionId = null;
+	dragDropInsertAfter = false;
+	event.dataTransfer.effectAllowed = "move";
+	event.dataTransfer.setData("text/plain", sessionId);
+	item.classList.add("is-dragging");
+	hideSessionHoverPopup();
+});
+
+sessionListEl.addEventListener("dragover", (event) => {
+	if (!draggingSessionId) {
+		return;
+	}
+
+	event.preventDefault();
+
+	const target = event.target;
+	if (!(target instanceof HTMLElement)) {
+		clearSessionDropMarkers();
+		dragDropSessionId = null;
+		return;
+	}
+
+	const item = target.closest(".session-item");
+	if (!(item instanceof HTMLElement)) {
+		clearSessionDropMarkers();
+		dragDropSessionId = null;
+		return;
+	}
+
+	const targetSessionId = item.dataset.id;
+	if (!targetSessionId || targetSessionId === draggingSessionId) {
+		clearSessionDropMarkers();
+		dragDropSessionId = null;
+		return;
+	}
+
+	const rect = item.getBoundingClientRect();
+	const insertAfter = event.clientY >= rect.top + rect.height / 2;
+
+	clearSessionDropMarkers();
+	item.classList.add(insertAfter ? "drop-after" : "drop-before");
+	dragDropSessionId = targetSessionId;
+	dragDropInsertAfter = insertAfter;
+	if (event.dataTransfer) {
+		event.dataTransfer.dropEffect = "move";
+	}
+});
+
+sessionListEl.addEventListener("drop", (event) => {
+	if (!draggingSessionId) {
+		return;
+	}
+
+	event.preventDefault();
+
+	let didMove = false;
+	if (dragDropSessionId) {
+		didMove = moveSessionInList(draggingSessionId, dragDropSessionId, dragDropInsertAfter);
+	}
+
+	clearSessionDropMarkers();
+	draggingSessionId = null;
+	dragDropSessionId = null;
+	dragDropInsertAfter = false;
+
+	if (didMove) {
+		hasCustomSessionOrder = true;
+		suppressSessionClickUntil = Date.now() + 300;
+		renderAll();
+		saveState();
+	}
+});
+
+sessionListEl.addEventListener("dragend", () => {
+	clearSessionDropMarkers();
+	draggingSessionId = null;
+	dragDropSessionId = null;
+	dragDropInsertAfter = false;
 });
 
 sessionListEl.addEventListener("keydown", (event) => {
