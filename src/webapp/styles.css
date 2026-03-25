@@ -782,6 +782,11 @@ body {
 	cursor: not-allowed;
 }
 
+.copilot-share-menu-item:disabled .copilot-share-menu-item-icon {
+	opacity: 0.45;
+	filter: grayscale(1);
+}
+
 .copilot-share-value {
 	font-size: 12px;
 	line-height: 1.35;

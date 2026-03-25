@@ -1295,7 +1295,7 @@ function renderSessionList() {
 			const isLocked = !isOpen;
 			const lockTitle = isOpen ? "Lock session" : "Unlock session";
 			const lockGlyph = isOpen ? "🔓︎": "🔐︎";
-			const moreTitle = isLocked ? "Session is locked" : "More Actions";
+			const moreTitle = "More Actions";
 			const safeName = escapeHtml(session.name);
 			const iconText = escapeHtml(session.name.slice(0, 1).toUpperCase() || "S");
 			const previewText = getPreview(session).replace(/\s+/g, " ").trim();
@@ -1317,7 +1317,7 @@ function renderSessionList() {
 							<button class="action-btn lock" type="button" data-action="toggle-lock" data-id="${session.id}" aria-label="${lockTitle}" title="${lockTitle}">
 								<span class="session-menu-glyph" aria-hidden="true">${lockGlyph}</span>
 							</button>
-							<button class="action-btn more copilot-share-menu-trigger" type="button" data-action="more" data-id="${session.id}" aria-haspopup="menu" aria-expanded="false" aria-controls="${sessionMenuId}" aria-label="${moreTitle}" title="${moreTitle}" ${isLocked ? "disabled" : ""}>
+							<button class="action-btn more copilot-share-menu-trigger" type="button" data-action="more" data-id="${session.id}" aria-haspopup="menu" aria-expanded="false" aria-controls="${sessionMenuId}" aria-label="${moreTitle}" title="${moreTitle}">
 								<span class="session-menu-glyph session-more-glyph" aria-hidden="true">•••</span>
 							</button>
 							<div class="copilot-share-menu-popup session-more-menu-popup" id="${sessionMenuId}" role="menu" hidden>
@@ -1419,7 +1419,7 @@ function updateInputActionStates() {
 		&& typeof window.isSessionStreamInFlight === "function"
 		&& window.isSessionStreamInFlight(activeSessionId);
 	if (dialogHeaderExportBtnEl) {
-		dialogHeaderExportBtnEl.disabled = !hasActiveSession || isLocked;
+		dialogHeaderExportBtnEl.disabled = !hasActiveSession;
 	}
 	if (resetContextBtnEl) {
 		resetContextBtnEl.disabled = !hasActiveSession || isLocked;
@@ -1428,7 +1428,7 @@ function updateInputActionStates() {
 		clearSessionHistoryBtnEl.disabled = !hasActiveSession || isLocked;
 	}
 	if (dialogHeaderMenuBtnEl) {
-		dialogHeaderMenuBtnEl.disabled = !hasActiveSession || isLocked;
+		dialogHeaderMenuBtnEl.disabled = !hasActiveSession;
 		if (dialogHeaderMenuBtnEl.disabled && dialogHeaderMenuEl) {
 			dialogHeaderMenuEl.hidden = true;
 			dialogHeaderMenuBtnEl.setAttribute("aria-expanded", "false");
@@ -1749,6 +1749,10 @@ sessionListEl.addEventListener("click", (event) => {
 
 	const actionButton = target.closest("button[data-action]");
 	if (actionButton) {
+		if (actionButton.matches(":disabled") || actionButton.getAttribute("aria-disabled") === "true") {
+			return;
+		}
+
 		event.stopPropagation();
 		const action = actionButton.getAttribute("data-action");
 		const sessionId = actionButton.getAttribute("data-id");
@@ -1756,9 +1760,6 @@ sessionListEl.addEventListener("click", (event) => {
 			return;
 		}
 		if (action === "more") {
-			if (isSessionLocked(sessionId)) {
-				return;
-			}
 			toggleSessionActionMenu(actionButton);
 			return;
 		}
@@ -1962,7 +1963,7 @@ sendBtnEl.addEventListener("click", handlePrimaryActionClick);
 
 if (dialogHeaderExportBtnEl) {
 	dialogHeaderExportBtnEl.addEventListener("click", () => {
-		if (isActiveSessionLocked()) {
+		if (dialogHeaderExportBtnEl.disabled) {
 			return;
 		}
 		downloadSessionAsMarkdown();
@@ -1973,6 +1974,12 @@ if (dialogHeaderExportBtnEl) {
 // Dialog header menu logic
 if (dialogHeaderMenuBtnEl && dialogHeaderMenuEl) {
 	dialogHeaderMenuBtnEl.addEventListener("click", (e) => {
+		if (dialogHeaderMenuBtnEl.disabled) {
+			dialogHeaderMenuEl.hidden = true;
+			dialogHeaderMenuBtnEl.setAttribute("aria-expanded", "false");
+			return;
+		}
+
 		e.stopPropagation();
 		const expanded = dialogHeaderMenuBtnEl.getAttribute("aria-expanded") === "true";
 		if (expanded) {
