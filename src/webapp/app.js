@@ -374,6 +374,7 @@ const dialogHeaderMenuEl = document.getElementById("dialogHeaderMenu");
 const copilotShareMenuBtnEl = document.getElementById("copilotShareMenuBtn");
 const copilotShareMenuEl = document.getElementById("copilotShareMenu");
 const sendBtnEl = document.getElementById("sendBtn");
+const inputHintMenuEl = document.getElementById("inputHintMenu");
 const mobileBackBtnEl = document.getElementById("mobileBackBtn");
 const sidebarToggleBtnEl = document.getElementById("sidebarToggleBtn");
 const sidebarEl = document.querySelector(".sidebar");
@@ -1469,6 +1470,16 @@ function isActiveSessionStreamInFlight() {
 	);
 }
 
+function closeInputHintMenuIfNeeded(target) {
+	if (!inputHintMenuEl || !inputHintMenuEl.open) {
+		return;
+	}
+	if (!(target instanceof Node) || inputHintMenuEl.contains(target)) {
+		return;
+	}
+	inputHintMenuEl.open = false;
+}
+
 // ====== User actions ======
 function openSession(sessionId, fromListClick = false) {
 	const target = sessions.find((item) => item.id === sessionId);
@@ -2099,6 +2110,12 @@ promptInputEl.addEventListener("wheel", (event) => {
 		event.preventDefault();
 	}
 }, { passive: false });
+
+if (inputHintMenuEl) {
+	document.addEventListener("click", (event) => {
+		closeInputHintMenuIfNeeded(event.target);
+	});
+}
 
 mobileBackBtnEl.addEventListener("click", () => {
 	appEl.classList.remove("show-dialog");
