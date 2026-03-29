@@ -497,6 +497,7 @@ const clearSessionHistoryBtnEl = document.getElementById("clearSessionHistoryBtn
 const resetContextBtnEl = document.getElementById("resetContextBtn");
 const dialogHeaderCopyBtnEl = document.getElementById("dialogHeaderCopyBtn");
 const dialogHeaderShareBtnEl = document.getElementById("dialogHeaderShareBtn");
+const dialogHeaderFullscreenBtnEl = document.getElementById("dialogHeaderFullscreenBtn");
 const dialogHeaderSummarizeBtnEl = document.getElementById("dialogHeaderSummarizeBtn");
 const dialogHeaderExportMenuItemEl = document.getElementById("dialogHeaderExportMenuItem");
 const dialogHeaderMenuBtnEl = document.getElementById("dialogHeaderMenuBtn");
@@ -2382,6 +2383,7 @@ function updateInputActionStates() {
 	if (clearSessionHistoryBtnEl) {
 		clearSessionHistoryBtnEl.disabled = !hasActiveSession || isLocked;
 	}
+	updateFullscreenButtonState();
 	if (dialogHeaderMenuBtnEl) {
 		dialogHeaderMenuBtnEl.disabled = !hasActiveSession;
 		if (dialogHeaderMenuBtnEl.disabled && dialogHeaderMenuEl) {
@@ -2415,6 +2417,100 @@ function updateInputActionStates() {
 	}
 	if (typeof window.setModelPickerLocked === "function") {
 		window.setModelPickerLocked(!hasActiveSession || isLocked);
+	}
+}
+
+function getFullscreenElement() {
+	return document.fullscreenElement || document.webkitFullscreenElement || null;
+}
+
+function canUseFullscreenApi() {
+	const rootEl = document.documentElement;
+	return Boolean(
+		(rootEl && (rootEl.requestFullscreen || rootEl.webkitRequestFullscreen))
+		&& (document.exitFullscreen || document.webkitExitFullscreen)
+	);
+}
+
+function updateFullscreenButtonState() {
+	if (!dialogHeaderFullscreenBtnEl) {
+		return;
+	}
+
+	if (!canUseFullscreenApi()) {
+		dialogHeaderFullscreenBtnEl.disabled = true;
+		dialogHeaderFullscreenBtnEl.classList.remove("is-fullscreen");
+		dialogHeaderFullscreenBtnEl.title = "Full Screen not supported";
+		dialogHeaderFullscreenBtnEl.setAttribute("aria-label", "Full Screen not supported");
+		return;
+	}
+
+	const isFullscreen = Boolean(getFullscreenElement());
+	dialogHeaderFullscreenBtnEl.disabled = false;
+	dialogHeaderFullscreenBtnEl.classList.toggle("is-fullscreen", isFullscreen);
+	dialogHeaderFullscreenBtnEl.title = isFullscreen ? "Exit Full Screen" : "Enter Full Screen";
+	dialogHeaderFullscreenBtnEl.setAttribute("aria-label", isFullscreen ? "Exit Full Screen" : "Enter Full Screen");
+}
+
+async function requestFullscreenMode() {
+	const rootEl = appEl || document.documentElement;
+	if (!rootEl) {
+		return;
+	}
+
+	if (typeof rootEl.requestFullscreen === "function") {
+		await rootEl.requestFullscreen();
+		return;
+	}
+
+	if (typeof rootEl.webkitRequestFullscreen === "function") {
+		rootEl.webkitRequestFullscreen();
+	}
+}
+
+async function exitFullscreenMode() {
+	if (typeof document.exitFullscreen === "function") {
+		await document.exitFullscreen();
+		return;
+	}
+
+	if (typeof document.webkitExitFullscreen === "function") {
+		document.webkitExitFullscreen();
+	}
+}
+
+async function toggleFullscreenMode() {
+	if (!canUseFullscreenApi()) {
+		return;
+	}
+
+	try {
+		if (getFullscreenElement()) {
+			await exitFullscreenMode();
+		} else {
+			await requestFullscreenMode();
+		}
+	} catch (error) {
+		const message = error instanceof Error ? error.message : String(error);
+		window.alert(`Fullscreen failed: ${message}`);
+	} finally {
+		updateFullscreenButtonState();
+	}
+}
+
+async function registerServiceWorker() {
+	if (!("serviceWorker" in navigator)) {
+		return;
+	}
+
+	if (window.location.protocol !== "https:" && window.location.hostname !== "localhost") {
+		return;
+	}
+
+	try {
+		await navigator.serviceWorker.register("./sw.js", { scope: "./" });
+	} catch (error) {
+		console.warn("Service worker registration failed:", error);
 	}
 }
 
@@ -3124,6 +3220,12 @@ if (dialogHeaderShareBtnEl) {
 	});
 }
 
+if (dialogHeaderFullscreenBtnEl) {
+	dialogHeaderFullscreenBtnEl.addEventListener("click", () => {
+		void toggleFullscreenMode();
+	});
+}
+
 if (dialogHeaderSummarizeBtnEl) {
 	dialogHeaderSummarizeBtnEl.addEventListener("click", async () => {
 		if (dialogHeaderSummarizeBtnEl.disabled) {
@@ -3442,6 +3544,8 @@ window.addEventListener("resize", () => {
 
 window.addEventListener("scroll", hideSessionHoverPopup, { passive: true });
 window.addEventListener("scroll", hideMessageContextMenu, { passive: true });
+document.addEventListener("fullscreenchange", updateFullscreenButtonState);
+document.addEventListener("webkitfullscreenchange", updateFullscreenButtonState);
 
 if (sidebarToggleBtnEl) {
 	sidebarToggleBtnEl.addEventListener("click", toggleSidebarCollapse);
@@ -3457,3 +3561,5 @@ if (typeof window.initCopilotSharePanel === "function") {
 }
 applySidebarState();
 renderAll();
+updateFullscreenButtonState();
+void registerServiceWorker();

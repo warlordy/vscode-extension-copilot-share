@@ -1,0 +1,1 @@
+importScripts("./pwa/sw.js");

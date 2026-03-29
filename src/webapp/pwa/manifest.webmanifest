@@ -1,0 +1,19 @@
+{
+	"name": "Copilot Share",
+	"short_name": "Copilot Share",
+	"description": "Copilot Share web app for managing and sharing Copilot sessions.",
+	"id": "../",
+	"start_url": "../index.html",
+	"scope": "../",
+	"display": "standalone",
+	"background_color": "#f2ede7",
+	"theme_color": "#f2ede7",
+	"icons": [
+		{
+			"src": "../icons/favicon.svg",
+			"sizes": "any",
+			"type": "image/svg+xml",
+			"purpose": "any"
+		}
+	]
+}

@@ -11,6 +11,7 @@
 .dialog-header-search-btn,
 .dialog-header-copy-btn,
 .dialog-header-share-btn,
+.dialog-header-fullscreen-btn,
 .dialog-header-summarize-btn,
 .dialog-title-summary-btn,
 .session-summary-copy-btn,
@@ -44,6 +45,10 @@
 	display: none !important;
 }
 
+.dialog-header-fullscreen-btn[hidden] {
+	display: none !important;
+}
+
 .dialog-header-summarize-btn[hidden] {
 	display: none !important;
 }
@@ -67,6 +72,7 @@
 .dialog-header-search-btn:hover,
 .dialog-header-copy-btn:hover,
 .dialog-header-share-btn:hover,
+.dialog-header-fullscreen-btn:hover,
 .dialog-header-summarize-btn:hover,
 .dialog-title-summary-btn:hover,
 .session-summary-copy-btn:hover,
@@ -79,6 +85,7 @@
 
 .dialog-header-copy-btn:disabled,
 .dialog-header-share-btn:disabled,
+.dialog-header-fullscreen-btn:disabled,
 .dialog-header-summarize-btn:disabled,
 .dialog-title-summary-btn:disabled,
 .session-summary-copy-btn:disabled,
@@ -94,6 +101,7 @@
 .dialog-header-search-btn:focus-visible,
 .dialog-header-copy-btn:focus-visible,
 .dialog-header-share-btn:focus-visible,
+.dialog-header-fullscreen-btn:focus-visible,
 .dialog-header-summarize-btn:focus-visible,
 .dialog-title-summary-btn:focus-visible,
 .session-summary-copy-btn:focus-visible,
@@ -147,6 +155,20 @@
 	background-position: center;
 	background-size: 16px 16px;
 	transition: transform 0.15s ease, filter 0.15s ease, opacity 0.15s ease;
+}
+
+.dialog-header-fullscreen-icon {
+	width: 16px;
+	height: 16px;
+	display: inline-block;
+	background-image: url("./icons/screen-full.svg");
+	background-repeat: no-repeat;
+	background-position: center;
+	background-size: 16px 16px;
+}
+
+.dialog-header-fullscreen-btn.is-fullscreen .dialog-header-fullscreen-icon {
+	background-image: url("./icons/screen-normal.svg");
 }
 
 .dialog-title-summary-icon {
