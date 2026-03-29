@@ -2106,7 +2106,8 @@ body {
 }
 
 .send-btn {
-	padding: 5px 8px;
+	height: 32px;
+	padding: 0 8px;
 	min-width: 60px;
 	border-radius: 8px;
 	font-size: 12px;
@@ -2125,6 +2126,38 @@ body {
 .send-btn:disabled.is-cancel {
 	background: #fdeced;
 	color: #b4232f;
+}
+
+.send-btn:disabled:not(.is-cancel) {
+	background: #d8dde3;
+	color: #7f8a96;
+	border-color: #c9d1d9;
+	opacity: 1;
+}
+
+.send-btn.is-streaming {
+	position: relative;
+	padding-left: 24px;
+}
+
+.send-btn.is-streaming::before {
+	content: "";
+	position: absolute;
+	left: 8px;
+	top: 50%;
+	width: 10px;
+	height: 10px;
+	margin-top: -5px;
+	border: 2px solid currentColor;
+	border-right-color: transparent;
+	border-radius: 50%;
+	animation: send-btn-spin 0.75s linear infinite;
+}
+
+@keyframes send-btn-spin {
+	to {
+		transform: rotate(360deg);
+	}
 }
 
 .clear-history-btn {

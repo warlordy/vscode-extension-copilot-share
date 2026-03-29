@@ -2396,9 +2396,11 @@ function updateInputActionStates() {
 		}
 	}
 	if (sendBtnEl) {
-		sendBtnEl.disabled = !hasActiveSession || isLocked;
+		const hasPromptText = Boolean(promptInputEl && promptInputEl.value.trim());
+		sendBtnEl.disabled = !hasActiveSession || isLocked || (!hasInFlightStream && !hasPromptText);
 		sendBtnEl.textContent = hasInFlightStream && !isLocked ? "Cancel" : "Send";
 		sendBtnEl.classList.toggle("is-cancel", hasInFlightStream);
+		sendBtnEl.classList.toggle("is-streaming", hasInFlightStream);
 	}
 	if (promptInputEl) {
 		promptInputEl.disabled = !hasActiveSession || isLocked;
@@ -3399,6 +3401,7 @@ promptInputEl.addEventListener("input", () => {
 		promptHistoryIndex = -1;
 		promptHistoryDraft = promptInputEl.value;
 	}
+	updateInputActionStates();
 });
 
 promptInputEl.addEventListener("wheel", (event) => {
