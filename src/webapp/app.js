@@ -459,6 +459,7 @@ let activeSessionId = null;
 let typingSessionId = null;
 let typingTimeoutId = null;
 let dialogHeaderCopyFeedbackTimeoutId = null;
+let dialogHeaderSummarizeBusy = false;
 let promptHistorySessionId = null;
 let promptHistoryIndex = -1;
 let promptHistoryDraft = "";
@@ -485,6 +486,7 @@ const clearSessionHistoryBtnEl = document.getElementById("clearSessionHistoryBtn
 const resetContextBtnEl = document.getElementById("resetContextBtn");
 const dialogHeaderCopyBtnEl = document.getElementById("dialogHeaderCopyBtn");
 const dialogHeaderShareBtnEl = document.getElementById("dialogHeaderShareBtn");
+const dialogHeaderSummarizeBtnEl = document.getElementById("dialogHeaderSummarizeBtn");
 const dialogHeaderExportMenuItemEl = document.getElementById("dialogHeaderExportMenuItem");
 const dialogHeaderMenuBtnEl = document.getElementById("dialogHeaderMenuBtn");
 const dialogHeaderMenuEl = document.getElementById("dialogHeaderMenu");
@@ -856,6 +858,45 @@ function exportMessageRecords(sessionId, messages) {
 	const stamp = formatDateTimeForFileName(Date.now());
 	const scope = messages.length > 1 ? `${messages.length}-messages` : "message";
 	const fileName = `${safeName}-${scope}-${stamp}.md`;
+	const blob = new Blob([markdown], { type: "text/markdown;charset=utf-8" });
+	downloadBlob(blob, fileName);
+}
+
+function buildSessionSummaryMarkdown(summaryText, { sessionName = "Session", sessionId = "" } = {}) {
+	const cleanedSummary = String(summaryText || "").replace(/\r\n/g, "\n").trim();
+	if (!cleanedSummary) {
+		return "";
+	}
+
+	const lines = [
+		"# Session Summary",
+		"",
+		`- Session Name: ${String(sessionName || "Session")}`,
+		`- Session ID: ${String(sessionId || "") || "unknown"}`,
+		`- Generated At: ${formatDateTime(Date.now())}`,
+		"",
+		cleanedSummary
+	];
+
+	return lines.join("\n").trim();
+}
+
+function downloadSessionSummary(session, summaryText) {
+	if (!session) {
+		return;
+	}
+
+	const markdown = buildSessionSummaryMarkdown(summaryText, {
+		sessionName: session.name,
+		sessionId: session.id
+	});
+	if (!markdown) {
+		return;
+	}
+
+	const safeName = sanitizeFileName(session.name || "session");
+	const stamp = formatDateTimeForFileName(Date.now());
+	const fileName = `${safeName}-summary-${stamp}.md`;
 	const blob = new Blob([markdown], { type: "text/markdown;charset=utf-8" });
 	downloadBlob(blob, fileName);
 }
@@ -2020,6 +2061,9 @@ function updateInputActionStates() {
 	if (dialogHeaderShareBtnEl) {
 		dialogHeaderShareBtnEl.disabled = !hasActiveSession;
 	}
+	if (dialogHeaderSummarizeBtnEl) {
+		dialogHeaderSummarizeBtnEl.disabled = !hasActiveSession || dialogHeaderSummarizeBusy;
+	}
 	if (dialogHeaderExportMenuItemEl) {
 		dialogHeaderExportMenuItemEl.disabled = !hasActiveSession;
 	}
@@ -2765,6 +2809,57 @@ if (dialogHeaderShareBtnEl) {
 			return;
 		}
 		exportMessageRecords(active.id, active.messages);
+	});
+}
+
+if (dialogHeaderSummarizeBtnEl) {
+	dialogHeaderSummarizeBtnEl.addEventListener("click", async () => {
+		if (dialogHeaderSummarizeBtnEl.disabled) {
+			return;
+		}
+
+		const active = getActiveSession();
+		if (!active || !Array.isArray(active.messages) || !active.messages.length) {
+			return;
+		}
+
+		if (typeof window.summarizeSessionMessages !== "function") {
+			window.alert("Summarize API is not available.");
+			return;
+		}
+
+		const summarySource = buildMessageRecordsMarkdown(active.messages);
+		if (!summarySource) {
+			window.alert("No messages available to summarize.");
+			return;
+		}
+
+		dialogHeaderSummarizeBusy = true;
+		dialogHeaderSummarizeBtnEl.classList.add("is-busy");
+		dialogHeaderSummarizeBtnEl.setAttribute("aria-busy", "true");
+		updateInputActionStates();
+
+		const originalTitle = dialogHeaderSummarizeBtnEl.getAttribute("title") || "Summarize Session Messages";
+		dialogHeaderSummarizeBtnEl.setAttribute("title", "Summarizing...");
+
+		try {
+			const modelId = typeof active.modelId === "string" ? active.modelId.trim() : "";
+			const result = await window.summarizeSessionMessages({
+				sessionId: active.id,
+				summarySource,
+				modelId
+			});
+			downloadSessionSummary(active, result.reply);
+		} catch (error) {
+			const message = error instanceof Error ? error.message : String(error);
+			window.alert(`Summarize failed: ${message}`);
+		} finally {
+			dialogHeaderSummarizeBtnEl.setAttribute("title", originalTitle);
+			dialogHeaderSummarizeBtnEl.classList.remove("is-busy");
+			dialogHeaderSummarizeBtnEl.setAttribute("aria-busy", "false");
+			dialogHeaderSummarizeBusy = false;
+			updateInputActionStates();
+		}
 	});
 }
 

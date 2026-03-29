@@ -607,3 +607,46 @@ window.resetChatContext = async ({ sessionId, clearAll = false } = {}) => {
 
 	return response.json();
 };
+
+window.summarizeSessionMessages = async ({ sessionId, summarySource, modelId } = {}) => {
+	const normalizedSessionId = String(sessionId || "").trim();
+	const normalizedSummarySource = String(summarySource || "").trim();
+	const normalizedModelId = typeof modelId === "string" && modelId.trim() ? modelId.trim() : undefined;
+
+	if (!normalizedSessionId) {
+		throw new Error("sessionId is required.");
+	}
+
+	if (!normalizedSummarySource) {
+		throw new Error("summarySource is required.");
+	}
+
+	const response = await fetch('/api/chat', {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({
+			sessionId: normalizedSessionId,
+			message: normalizedSummarySource,
+			summarySource: normalizedSummarySource,
+			modelId: normalizedModelId,
+			summarizeSession: true,
+			stream: false
+		})
+	});
+
+	if (!response.ok) {
+		throw new Error(`HTTP ${response.status}`);
+	}
+
+	const data = await response.json();
+	const replyText = typeof data?.reply === "string" ? data.reply.trim() : "";
+	if (!replyText) {
+		throw new Error("Summary response is empty.");
+	}
+
+	return {
+		reply: replyText,
+		model: data?.model || null,
+		timestamp: data?.timestamp
+	};
+};

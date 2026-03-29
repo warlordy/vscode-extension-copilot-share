@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import {EXTENSION_ID, debugLog} from './helper';
 
 const SYSTEM_PROMPT =
-	'You are Copilot Share, a concise and helpful assistant. Answer clearly, stay on-topic, and use the conversation history to keep context.';
+	'You are a concise and helpful Copilot assistant. Answer clearly, stay on-topic, and use the conversation history to keep context.';
 const HISTORY_TURNS_TO_KEEP = 8;
 const RECENT_TURNS_TO_KEEP_AFTER_SUMMARY = 3;
 const TOKEN_ESTIMATE_CHARS_PER_TOKEN = 4;
@@ -11,6 +11,32 @@ const RESERVED_OUTPUT_TOKENS = 1024;
 const MIN_CONTEXT_TOKEN_BUDGET = 1024;
 const MAX_CONTEXT_BUDGET_RATIO = 0.75;
 const SUMMARY_TRIGGER_RATIO = 0.7;
+const SESSION_SUMMARY_PROMPT_LINES = [
+	'Create a high-quality summary of the entire current conversation session.',
+	'Return the summary in a clean, structured, and professional style suitable for later review or sharing.',
+	'',
+	'Requirements:',
+	'1. Identify the major independent discussion topics in the session.',
+	'2. Start with a short high-level overview of the whole session.',
+	'3. Then provide a separate section for each major topic.',
+	'4. For each topic, summarize:',
+	'   - the user\'s key requests, goals, or questions',
+	'   - the important answers, proposed solutions, technical decisions, or conclusions',
+	'   - any remaining open issues, risks, tradeoffs, or next steps when they are clearly present',
+	'5. Remove noise, repetition, filler, off-topic content, and trivial back-and-forth that does not affect the core discussion.',
+	'6. Preserve important technical details such as file names, APIs, commands, configuration names, constraints, and chosen approaches when they matter.',
+	'7. Do not invent facts, decisions, or requirements that are not supported by the conversation.',
+	'8. Merge duplicate points and present the result in a concise but information-dense way.',
+	'9. Use clear Markdown headings and bullet points for readability.',
+	'10. Write with clarity and professionalism, avoiding conversational filler.',
+	'',
+	'Preferred output structure:',
+	'- Session Overview',
+	'- Topic 1',
+	'- Topic 2',
+	'- Topic 3',
+	'- Open Items / Next Steps (only if applicable)'
+];
 const FILTERED_MODEL_IDS = new Set([
 	// Model: "GPT-4o mini". Filtered out due to lower token limits and inconsistent visibility in VS Code Copilot.
 	'copilot-fast', 
@@ -34,6 +60,13 @@ type MessageRole = 'user' | 'assistant';
 type ConversationTurn = {
 	role: MessageRole;
 	content: string;
+};
+
+type ChatRequestMode = 'chat' | 'session-summary';
+
+type GenerateChatReplyOptions = {
+	mode?: ChatRequestMode;
+	summarySource?: string;
 };
 
 const sessionHistory = new Map<string, ConversationTurn[]>();
@@ -89,11 +122,16 @@ export async function generateChatReply(
 	sessionId: string,
 	userMessage: string,
 	modelId?: string,
-	onChunk?: (chunk: string) => void | Promise<void>
+	onChunk?: (chunk: string) => void | Promise<void>,
+	options?: GenerateChatReplyOptions
 ): Promise<{ reply: string; model: ChatModelInfo }> {
 	debugLog(`handle chat request, session id:${sessionId}, model id:${modelId}, user msg:${userMessage}`);
 	const model = await selectChatModel(modelId);
-	const messages = buildMessagesForSession(sessionId, userMessage, model.maxInputTokens);
+	const mode = options?.mode ?? 'chat';
+	const messages = buildMessagesForSession(sessionId, userMessage, model.maxInputTokens, {
+		mode,
+		summarySource: options?.summarySource
+	});
 	const modelResponse = await model.sendRequest(messages, {
 		justification: 'Generate a helpful reply for a user chat message in Copilot Share.'
 	});
@@ -101,9 +139,11 @@ export async function generateChatReply(
 	const streamedReply = await readModelTextResponse(modelResponse, onChunk);
 	const reply = streamedReply.trim() ? streamedReply : 'Model returned an empty response.';
 
-	appendTurn(sessionId, 'user', userMessage);
-	appendTurn(sessionId, 'assistant', reply);
-	await compactSessionMemoryIfNeeded(sessionId, model);
+	if (mode === 'chat') {
+		appendTurn(sessionId, 'user', userMessage);
+		appendTurn(sessionId, 'assistant', reply);
+		await compactSessionMemoryIfNeeded(sessionId, model);
+	}
 
 	return {
 		reply,
@@ -121,8 +161,13 @@ export async function generateChatReply(
 function buildMessagesForSession(
 	sessionId: string,
 	userMessage: string,
-	modelMaxInputTokens: number
+	modelMaxInputTokens: number,
+	options?: GenerateChatReplyOptions
 ): vscode.LanguageModelChatMessage[] {
+	if ((options?.mode ?? 'chat') === 'session-summary') {
+		return buildSessionSummaryMessages(userMessage, options?.summarySource);
+	}
+
 	const history = sessionHistory.get(sessionId) ?? [];
 	const summary = sessionSummaries.get(sessionId) ?? '';
 	const budget = resolveContextTokenBudget(modelMaxInputTokens);
@@ -139,6 +184,21 @@ function buildMessagesForSession(
 		vscode.LanguageModelChatMessage.User(systemPrompt, 'system'),
 		...historyMessages,
 		vscode.LanguageModelChatMessage.User(userMessage)
+	];
+}
+
+function buildSessionSummaryMessages(userMessage: string, summarySource?: string): vscode.LanguageModelChatMessage[] {
+	const rawMessages = String(summarySource || userMessage || '').trim();
+	const prompt = [
+		...SESSION_SUMMARY_PROMPT_LINES,
+		'',
+		'All the messages in the current session:',
+		rawMessages
+	].join('\n');
+
+	return [
+		vscode.LanguageModelChatMessage.User(SYSTEM_PROMPT, 'system'),
+		vscode.LanguageModelChatMessage.User(prompt)
 	];
 }
 

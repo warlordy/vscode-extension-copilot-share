@@ -10,7 +10,9 @@
 /* Search button in dialog header */
 .dialog-header-search-btn,
 .dialog-header-copy-btn,
-.dialog-header-share-btn {
+.dialog-header-share-btn,
+.dialog-header-summarize-btn {
+	position: relative;
 	width: 28px;
 	height: 28px;
 	border: 1px solid #d0d7de;
@@ -37,6 +39,10 @@
 	display: none !important;
 }
 
+.dialog-header-summarize-btn[hidden] {
+	display: none !important;
+}
+
 /* Make dialog-header-actions horizontal */
 .dialog-header-actions {
 	display: flex;
@@ -48,13 +54,15 @@
 
 .dialog-header-search-btn:hover,
 .dialog-header-copy-btn:hover,
-.dialog-header-share-btn:hover {
+.dialog-header-share-btn:hover,
+.dialog-header-summarize-btn:hover {
 	background: #f3f5f9;
 	border-color: #c2c8d0;
 }
 
 .dialog-header-copy-btn:disabled,
-.dialog-header-share-btn:disabled {
+.dialog-header-share-btn:disabled,
+.dialog-header-summarize-btn:disabled {
 	background: #f5f7fa;
 	border-color: #dde3ea;
 	cursor: not-allowed;
@@ -63,7 +71,8 @@
 
 .dialog-header-search-btn:focus-visible,
 .dialog-header-copy-btn:focus-visible,
-.dialog-header-share-btn:focus-visible {
+.dialog-header-share-btn:focus-visible,
+.dialog-header-summarize-btn:focus-visible {
 	outline: none;
 	border-color: #9ed7b8;
 	box-shadow: 0 0 0 3px rgba(7, 193, 96, 0.16);
@@ -98,6 +107,79 @@
 	background-position: center;
 	background-size: 16px 16px;
 	transition: background-image 0s linear;
+}
+
+.dialog-header-summarize-icon {
+	position: relative;
+	z-index: 1;
+	width: 16px;
+	height: 16px;
+	display: inline-block;
+	background-image: url("./icons/rocket.svg");
+	background-repeat: no-repeat;
+	background-position: center;
+	background-size: 16px 16px;
+	transition: transform 0.15s ease, filter 0.15s ease, opacity 0.15s ease;
+}
+
+.dialog-header-summarize-btn.is-busy,
+.dialog-header-summarize-btn.is-busy:disabled {
+	background: linear-gradient(180deg, #effaf3 0%, #e3f7eb 100%);
+	border-color: #9ed7b8;
+	opacity: 1;
+	cursor: progress;
+}
+
+.dialog-header-summarize-btn.is-busy::before {
+	content: "";
+	position: absolute;
+	left: 50%;
+	top: 50%;
+	width: 18px;
+	height: 18px;
+	margin-left: -9px;
+	margin-top: -9px;
+	border-radius: 50%;
+	border: 1.5px solid rgba(7, 193, 96, 0.16);
+	border-top-color: rgba(7, 193, 96, 0.88);
+	border-right-color: rgba(7, 193, 96, 0.5);
+	animation: summarize-ring-spin 0.9s linear infinite;
+	pointer-events: none;
+}
+
+.dialog-header-summarize-btn.is-busy .dialog-header-summarize-icon {
+	filter: saturate(1.2) drop-shadow(0 0 5px rgba(7, 193, 96, 0.28));
+	animation: summarize-rocket-bob 0.95s ease-in-out infinite alternate, summarize-rocket-thrust 1.35s linear infinite;
+}
+
+@keyframes summarize-ring-spin {
+	0% {
+		transform: rotate(0deg);
+	}
+	100% {
+		transform: rotate(360deg);
+	}
+}
+
+@keyframes summarize-rocket-bob {
+	0% {
+		transform: translateY(0) rotate(-8deg) scale(1);
+	}
+	100% {
+		transform: translateY(-1px) rotate(6deg) scale(1.06);
+	}
+}
+
+@keyframes summarize-rocket-thrust {
+	0% {
+		opacity: 0.82;
+	}
+	50% {
+		opacity: 1;
+	}
+	100% {
+		opacity: 0.82;
+	}
 }
 
 .dialog-header-copy-btn.is-copied .dialog-header-copy-icon {

@@ -181,8 +181,10 @@ async function handleChatRequest(
 	const sessionId = typeof body.sessionId === 'string' ? body.sessionId : 'unknown-session';
 	const modelId = typeof body.modelId === 'string' ? body.modelId : undefined;
 	const stream = body.stream === true;
+	const summarizeSession = body.summarizeSession === true;
+	const summarySource = typeof body.summarySource === 'string' ? body.summarySource.trim() : '';
 	const userMessage = typeof body.message === 'string' ? body.message.trim() : '';
-	if (!userMessage) {
+	if (!userMessage && !(summarizeSession && summarySource)) {
 		sendJson(response, 400, {
 			sessionId,
 			error: 'Message is required.'
@@ -195,7 +197,18 @@ async function handleChatRequest(
 		return;
 	}
 
-	const result = await generateChatReply(sessionId, userMessage, modelId);
+	const result = await generateChatReply(
+		sessionId,
+		userMessage || summarySource,
+		modelId,
+		undefined,
+		summarizeSession
+			? {
+				mode: 'session-summary',
+				summarySource
+			}
+			: undefined
+	);
 
 	sendJson(response, 200, {
 		sessionId,
