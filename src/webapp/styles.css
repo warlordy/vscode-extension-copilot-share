@@ -105,6 +105,34 @@
 	transition: background-color 0.15s ease, color 0.15s ease;
 }
 
+.dialog-header-search-option {
+	height: 22px;
+	min-width: 26px;
+	border: 1px solid #d0d7de;
+	border-radius: 6px;
+	padding: 0 6px;
+	font: inherit;
+	font-size: 10px;
+	font-weight: 700;
+	letter-spacing: 0.02em;
+	cursor: pointer;
+	white-space: nowrap;
+	background: #f8fafc;
+	color: #475569;
+	transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.dialog-header-search-option:hover {
+	background: #eef3f8;
+}
+
+.dialog-header-search-option[aria-pressed="true"] {
+	background: #dbeafe;
+	color: #1d4ed8;
+	border-color: #93c5fd;
+	box-shadow: inset 0 0 0 1px rgba(29, 78, 216, 0.08);
+}
+
 .dialog-header-search-nav {
 	min-width: 22px;
 	padding: 0;

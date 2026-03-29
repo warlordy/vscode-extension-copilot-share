@@ -64,13 +64,27 @@ function highlightTextNodeMatches(textNode, pattern, highlights) {
 	textNode.replaceWith(fragment);
 }
 
-function highlightMessageMatches(query) {
+function highlightMessageMatches(query, { caseSensitive = false, useRegex = false, useWholeWord = false } = {}) {
 	clearMessageHighlights();
 	if (!messagesEl || !query) {
 		return [];
 	}
 
-	const pattern = new RegExp(escapeRegExp(query), "gi");
+	let pattern = null;
+	const flags = caseSensitive ? "g" : "gi";
+	const rawSource = String(query || "");
+	if (useRegex) {
+		try {
+			const source = useWholeWord ? `\\b(?:${rawSource})\\b` : rawSource;
+			pattern = new RegExp(source, flags);
+		} catch {
+			return [];
+		}
+	} else {
+		const escapedSource = escapeRegExp(rawSource);
+		const source = useWholeWord ? `\\b${escapedSource}\\b` : escapedSource;
+		pattern = new RegExp(source, flags);
+	}
 	const messageBubbles = messagesEl.querySelectorAll(".message-row .bubble");
 	const highlights = [];
 
@@ -111,9 +125,63 @@ const messageSearchNextBtnEl = document.getElementById("messageSearchNextBtn");
 const messageSearchMatchInfoEl = document.getElementById("messageSearchMatchInfo");
 const closeMessageSearchBtnEl = document.getElementById("closeMessageSearchBtn");
 const dialogHeaderSearchBtnEl = document.getElementById("dialogHeaderSearchBtn");
+const messageSearchCaseBtnEl = document.getElementById("messageSearchCaseBtn");
+const messageSearchRegexBtnEl = document.getElementById("messageSearchRegexBtn");
+const messageSearchWholeWordBtnEl = document.getElementById("messageSearchWholeWordBtn");
 
 let searchMatches = [];
 let currentMatchIdx = -1;
+let lastSearchQuery = "";
+let isSearchCaseSensitive = false;
+let isSearchRegex = false;
+let isSearchWholeWord = false;
+let lastSearchCaseSensitive = false;
+let lastSearchRegex = false;
+let lastSearchWholeWord = false;
+
+function updateSearchOptionButtons() {
+	if (messageSearchCaseBtnEl) {
+		messageSearchCaseBtnEl.setAttribute("aria-pressed", isSearchCaseSensitive ? "true" : "false");
+		messageSearchCaseBtnEl.title = isSearchCaseSensitive ? "Case-sensitive On" : "Case-sensitive Off";
+	}
+
+	if (messageSearchRegexBtnEl) {
+		messageSearchRegexBtnEl.setAttribute("aria-pressed", isSearchRegex ? "true" : "false");
+		messageSearchRegexBtnEl.title = isSearchRegex ? "Regex On" : "Regex Off";
+	}
+
+	if (messageSearchWholeWordBtnEl) {
+		messageSearchWholeWordBtnEl.setAttribute("aria-pressed", isSearchWholeWord ? "true" : "false");
+		messageSearchWholeWordBtnEl.title = isSearchWholeWord ? "Whole-word On" : "Whole-word Off";
+	}
+}
+
+function toggleSearchCaseSensitive() {
+	isSearchCaseSensitive = !isSearchCaseSensitive;
+	updateSearchOptionButtons();
+	refreshMessageSearch({ scrollToActive: true, resetIndex: true });
+	if (messageSearchInputEl) {
+		messageSearchInputEl.focus();
+	}
+}
+
+function toggleSearchRegex() {
+	isSearchRegex = !isSearchRegex;
+	updateSearchOptionButtons();
+	refreshMessageSearch({ scrollToActive: true, resetIndex: true });
+	if (messageSearchInputEl) {
+		messageSearchInputEl.focus();
+	}
+}
+
+function toggleSearchWholeWord() {
+	isSearchWholeWord = !isSearchWholeWord;
+	updateSearchOptionButtons();
+	refreshMessageSearch({ scrollToActive: true, resetIndex: true });
+	if (messageSearchInputEl) {
+		messageSearchInputEl.focus();
+	}
+}
 
 function updateSearchNavigationState() {
 	const hasMatches = searchMatches.length > 0;
@@ -173,21 +241,37 @@ function refreshMessageSearch({ scrollToActive = false, resetIndex = false } = {
 	clearMessageHighlights();
 	searchMatches = [];
 	currentMatchIdx = -1;
+		lastSearchQuery = "";
+		lastSearchCaseSensitive = isSearchCaseSensitive;
+		lastSearchRegex = isSearchRegex;
+		lastSearchWholeWord = isSearchWholeWord;
 		updateSearchMatchInfo();
 		updateSearchNavigationState();
 		return;
 	}
 
 	const previousIndex = resetIndex ? 0 : currentMatchIdx;
-	searchMatches = highlightMessageMatches(query);
+	searchMatches = highlightMessageMatches(query, {
+		caseSensitive: isSearchCaseSensitive,
+		useRegex: isSearchRegex,
+		useWholeWord: isSearchWholeWord
+	});
 	if (!searchMatches.length) {
 		currentMatchIdx = -1;
+		lastSearchQuery = query;
+		lastSearchCaseSensitive = isSearchCaseSensitive;
+		lastSearchRegex = isSearchRegex;
+		lastSearchWholeWord = isSearchWholeWord;
 		updateSearchMatchInfo();
 		updateSearchNavigationState();
 		return;
 	}
 
 	const nextIndex = previousIndex >= 0 ? Math.min(previousIndex, searchMatches.length - 1) : 0;
+	lastSearchQuery = query;
+	lastSearchCaseSensitive = isSearchCaseSensitive;
+	lastSearchRegex = isSearchRegex;
+	lastSearchWholeWord = isSearchWholeWord;
 	setCurrentSearchMatch(nextIndex, { scroll: scrollToActive });
 }
 
@@ -199,6 +283,7 @@ function openMessageSearchBar() {
 
 	dialogHeaderSearchBtnEl.hidden = true;
 	messageSearchBarEl.hidden = false;
+	updateSearchOptionButtons();
 	window.requestAnimationFrame(() => {
 		if (messageSearchInputEl) {
 			messageSearchInputEl.focus();
@@ -222,6 +307,10 @@ function closeMessageSearchBar() {
 	clearMessageHighlights();
 	searchMatches = [];
 	currentMatchIdx = -1;
+	lastSearchQuery = "";
+	lastSearchCaseSensitive = isSearchCaseSensitive;
+	lastSearchRegex = isSearchRegex;
+	lastSearchWholeWord = isSearchWholeWord;
 	updateSearchMatchInfo();
 	updateSearchNavigationState();
 	dialogHeaderSearchBtnEl.focus();
@@ -292,7 +381,21 @@ if (messageSearchInputEl) {
 	messageSearchInputEl.addEventListener("keydown", (event) => {
 		if (event.key === "Enter") {
 			event.preventDefault();
-			runMessageSearch();
+			const query = messageSearchInputEl.value.trim();
+			const canNavigateExistingResults =
+				Boolean(query) &&
+				query === lastSearchQuery &&
+				isSearchCaseSensitive === lastSearchCaseSensitive &&
+				isSearchRegex === lastSearchRegex &&
+				isSearchWholeWord === lastSearchWholeWord &&
+				searchMatches.length > 0 &&
+				currentMatchIdx >= 0;
+
+			if (canNavigateExistingResults) {
+				gotoNextMatch();
+			} else {
+				runMessageSearch();
+			}
 		}
 
 		if (event.key === "Escape") {
@@ -307,10 +410,20 @@ if (messageSearchPrevBtnEl) {
 if (messageSearchNextBtnEl) {
 	messageSearchNextBtnEl.addEventListener("click", gotoNextMatch);
 }
+if (messageSearchCaseBtnEl) {
+	messageSearchCaseBtnEl.addEventListener("click", toggleSearchCaseSensitive);
+}
+if (messageSearchRegexBtnEl) {
+	messageSearchRegexBtnEl.addEventListener("click", toggleSearchRegex);
+}
+if (messageSearchWholeWordBtnEl) {
+	messageSearchWholeWordBtnEl.addEventListener("click", toggleSearchWholeWord);
+}
 if (messageSearchBarEl) {
 	messageSearchBarEl.addEventListener("wheel", handleMessageSearchWheel, { passive: false });
 }
 
+updateSearchOptionButtons();
 updateSearchMatchInfo();
 updateSearchNavigationState();
 // ====== Storage keys ======
