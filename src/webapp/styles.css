@@ -1,3 +1,12 @@
+/* Underline for the 'ab' whole-word match button, mimicking VS Code */
+.search-ab-underline {
+	text-decoration: underline;
+	text-underline-offset: 2px;
+	font-family: inherit;
+	font-size: 10px;
+	font-weight: 700;
+	letter-spacing: 0.02em;
+}
 /* Search button in dialog header */
 .dialog-header-search-btn,
 .dialog-header-export-btn {

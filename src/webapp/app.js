@@ -142,17 +142,17 @@ let lastSearchWholeWord = false;
 function updateSearchOptionButtons() {
 	if (messageSearchCaseBtnEl) {
 		messageSearchCaseBtnEl.setAttribute("aria-pressed", isSearchCaseSensitive ? "true" : "false");
-		messageSearchCaseBtnEl.title = isSearchCaseSensitive ? "Case-sensitive On" : "Case-sensitive Off";
+		// messageSearchCaseBtnEl.title = isSearchCaseSensitive ? "Case-sensitive On" : "Case-sensitive Off";
 	}
 
 	if (messageSearchRegexBtnEl) {
 		messageSearchRegexBtnEl.setAttribute("aria-pressed", isSearchRegex ? "true" : "false");
-		messageSearchRegexBtnEl.title = isSearchRegex ? "Regex On" : "Regex Off";
+		// messageSearchRegexBtnEl.title = isSearchRegex ? "Regex On" : "Regex Off";
 	}
 
 	if (messageSearchWholeWordBtnEl) {
 		messageSearchWholeWordBtnEl.setAttribute("aria-pressed", isSearchWholeWord ? "true" : "false");
-		messageSearchWholeWordBtnEl.title = isSearchWholeWord ? "Whole-word On" : "Whole-word Off";
+		// messageSearchWholeWordBtnEl.title = isSearchWholeWord ? "Whole-word On" : "Whole-word Off";
 	}
 }
 
