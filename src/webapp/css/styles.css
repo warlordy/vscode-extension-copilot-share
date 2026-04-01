@@ -1554,6 +1554,11 @@ body {
 	color: #1f2329;
 }
 
+.session-summary-markdown.markdown-body {
+    font-size: 13px;
+    line-height: 1.45;
+}
+
 .app.show-summary-page .messages,
 .app.show-summary-page .input-area {
 	display: none;
