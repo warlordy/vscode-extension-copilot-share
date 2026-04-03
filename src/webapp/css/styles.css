@@ -1118,7 +1118,7 @@ body {
 	width: 16px;
 	height: 16px;
 	display: inline-block;
-	background-image: url("../icons/sign-in.svg");
+	background-image: url("../icons/chat-import.svg");
 	background-repeat: no-repeat;
 	background-size: 16px 16px;
 	background-position: center;
@@ -1239,11 +1239,11 @@ body {
 }
 
 .copilot-share-menu-item-icon.icon-export-all {
-	background-image: url("../icons/sign-out.svg");
+	background-image: url("../icons/chat-export.svg");
 }
 
 .copilot-share-menu-item-icon.icon-export-session {
-	background-image: url("../icons/sign-out.svg");
+	background-image: url("../icons/chat-export.svg");
 }
 
 .copilot-share-menu-item-icon.icon-share-session-list {
