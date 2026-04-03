@@ -1534,6 +1534,7 @@ function exportMessageRecords(sessionId, messages) {
 	downloadBlob(blob, fileName);
 }
 
+const emojisForSessionMD = { metadata:'📌', summary:'📝', conversation:'💬' };
 function buildSessionSummaryMarkdown(summaryText, { sessionName = "Session", sessionId = "" } = {}) {
 	const generatedAt = Date.now();
 	const cleanedSummary = String(summaryText || "").replace(/\r\n/g, "\n").trim();
@@ -1542,7 +1543,7 @@ function buildSessionSummaryMarkdown(summaryText, { sessionName = "Session", ses
 	}
 
 	const lines = [
-		"## Session Summary",
+		`## ${emojisForSessionMD.summary} Session Summary`,
 		"",
 		`- Session Name: ${String(sessionName || "Session")}`,
 		`- Session ID: ${String(sessionId || "") || "unknown"}`,
@@ -2091,19 +2092,31 @@ function resolveModelMetadata(session) {
 
 function buildSessionMarkdown(session) {
 	const model = resolveModelMetadata(session);
+	const summaryMarkdown = getSessionSummaryMarkdown(session);
 	const lines = [];
 	lines.push(`# ${String(session.name || "Session")}`);
 	lines.push("");
-	lines.push("## Session Metadata");
+	lines.push(`## ${emojisForSessionMD.metadata} Session Metadata`);
 	lines.push("");
 	lines.push(`- Session Name: ${String(session.name || "")}`);
 	lines.push(`- Session ID: ${String(session.id || "")}`);
 	lines.push(`- Current Model: ${model.name}`);
 	lines.push(`- Current Model ID: ${model.id || "Unknown"}`);
 	lines.push(`- Exported At: ${formatDateTime(Date.now())}`);
-	lines.push("");
-	lines.push("## Conversation");
 
+	lines.push("");
+	if (summaryMarkdown) {
+		if (!summaryMarkdown.includes("Session Summary")) {
+			lines.push(`## ${emojisForSessionMD.summary} Session Summary`);
+		}
+		lines.push(summaryMarkdown);
+	} else {
+		lines.push(`## ${emojisForSessionMD.summary} Session Summary`);
+		lines.push("_No summary for this session._");
+	}
+
+	lines.push("");
+	lines.push(`## ${emojisForSessionMD.conversation} Conversation Messages`);
 	if (!Array.isArray(session.messages) || !session.messages.length) {
 		lines.push("");
 		lines.push("_No messages in this session._");
@@ -2369,6 +2382,35 @@ function parseSessionMessagesFromMarkdown(markdown) {
 	return messages;
 }
 
+function parseSessionSummaryFromMarkdown(markdown) {
+	const normalized = String(markdown || "").replace(/\r\n/g, "\n");
+	const lines = normalized.split("\n");
+	const summaryHeadingIndex = lines.findIndex((line) => /^(##)\s+.*Session Summary\s*$/.test(String(line || "").trim()));
+	if (summaryHeadingIndex < 0) {
+		return "";
+	}
+
+	let summaryEndIndex = lines.length;
+	for (let index = summaryHeadingIndex + 1; index < lines.length; index += 1) {
+		if (/^(##)\s+.*Conversation Messages\s*$/.test(String(lines[index] || "").trim())) {
+			summaryEndIndex = index;
+			break;
+		}
+	}
+
+	const section = lines.slice(summaryHeadingIndex, summaryEndIndex).join("\n").trim();
+	if (!section) {
+		return "";
+	}
+
+	const noSummaryMarker = "_No summary for this session._";
+	if (section === noSummaryMarker || section.endsWith(`\n${noSummaryMarker}`)) {
+		return "";
+	}
+
+	return section;
+}
+
 function parseSessionFromMarkdown(markdown) {
 	const metadata = parseSessionMetadataFromMarkdown(markdown);
 	const missingFields = [];
@@ -2390,10 +2432,12 @@ function parseSessionFromMarkdown(markdown) {
 	}
 
 	const parsedMessages = parseSessionMessagesFromMarkdown(markdown);
+	const parsedSummary = parseSessionSummaryFromMarkdown(markdown);
 	return {
 		id: metadata.sessionId,
 		name: metadata.sessionName,
 		modelId: metadata.currentModelId,
+		summaryMarkdown: parsedSummary,
 		messages: parsedMessages
 	};
 }
