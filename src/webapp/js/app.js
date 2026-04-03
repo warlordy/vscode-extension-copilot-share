@@ -1080,7 +1080,9 @@ let typingTimeoutId = null;
 let dialogHeaderCopyFeedbackTimeoutId = null;
 let sessionSummaryCopyFeedbackTimeoutId = null;
 let summaryNoticeTimeoutId = null;
+let summaryNoticeSessionId = "";
 let dialogHeaderSummarizeBusy = false;
+let dialogHeaderSummarizeBusySessionId = "";
 let isSessionSummaryPageOpen = false;
 let detachedSessionSummaryWindow = null;
 let promptHistorySessionId = null;
@@ -1499,23 +1501,35 @@ function showSessionSummaryCopyFeedback() {
 	}, 1200);
 }
 
-function showSummaryNoticeFeedback() {
-	if (!dialogTitleSummaryBtnEl) {
+function showSummaryNoticeFeedback(sessionId) {
+	const normalizedSessionId = String(sessionId || "").trim();
+	if (!normalizedSessionId) {
 		return;
 	}
 
-	dialogTitleSummaryBtnEl.classList.remove("has-new-summary");
-	void dialogTitleSummaryBtnEl.offsetWidth;
-	dialogTitleSummaryBtnEl.classList.add("has-new-summary");
+	summaryNoticeSessionId = normalizedSessionId;
+	syncSummaryNoticeHighlightState();
+	renderSessionList();
 
 	if (summaryNoticeTimeoutId) {
 		window.clearTimeout(summaryNoticeTimeoutId);
 	}
 
 	summaryNoticeTimeoutId = window.setTimeout(() => {
-		dialogTitleSummaryBtnEl?.classList.remove("has-new-summary");
+		summaryNoticeSessionId = "";
+		syncSummaryNoticeHighlightState();
+		renderSessionList();
 		summaryNoticeTimeoutId = null;
 	}, 2600);
+}
+
+function syncSummaryNoticeHighlightState() {
+	if (!dialogTitleSummaryBtnEl) {
+		return;
+	}
+
+	const shouldHighlight = Boolean(summaryNoticeSessionId) && activeSessionId === summaryNoticeSessionId;
+	dialogTitleSummaryBtnEl.classList.toggle("has-new-summary", shouldHighlight);
 }
 
 function exportMessageRecords(sessionId, messages) {
@@ -3237,7 +3251,10 @@ function renderSessionList() {
 			const currentAppSearchSessionId = appSearchCurrentMatchIdx >= 0 ? appSearchMatchedSessionIds[appSearchCurrentMatchIdx] : "";
 			const appSearchMatchClass = isAppSearchMatch ? "session-item-app-match" : "";
 			const appSearchCurrentClass = isAppSearchMatch && currentAppSearchSessionId === session.id ? "session-item-app-match-current" : "";
-			const itemClass = ["session-item", activeClass, appSearchMatchClass, appSearchCurrentClass].filter(Boolean).join(" ");
+			const summaryNoticeClass = summaryNoticeSessionId && summaryNoticeSessionId === session.id && session.id !== activeSessionId
+				? "session-item-summary-notice"
+				: "";
+			const itemClass = ["session-item", activeClass, appSearchMatchClass, appSearchCurrentClass, summaryNoticeClass].filter(Boolean).join(" ");
 			const isOpen = session.isOpen !== false;
 			const isLocked = !isOpen;
 			const lockTitle = isOpen ? "Lock session" : "Unlock session";
@@ -3402,9 +3419,12 @@ function updateInputActionStates() {
 	if (dialogTitleSummaryBtnEl) {
 		const active = getActiveSession();
 		const hasSummary = Boolean(active && getSessionSummaryMarkdown(active));
-		dialogTitleSummaryBtnEl.disabled = !hasActiveSession || dialogHeaderSummarizeBusy;
+		dialogTitleSummaryBtnEl.disabled = !hasActiveSession;
 		dialogTitleSummaryBtnEl.setAttribute("aria-expanded", isSessionSummaryPageOpen ? "true" : "false");
-		if (dialogHeaderSummarizeBusy) {
+		const isSummarizingCurrentSession = dialogHeaderSummarizeBusy
+			&& Boolean(active)
+			&& active.id === dialogHeaderSummarizeBusySessionId;
+		if (isSummarizingCurrentSession) {
 			dialogTitleSummaryBtnEl.title = "Summarizing in progress...";
 			dialogTitleSummaryBtnEl.setAttribute("aria-label", "Summarizing in progress...");
 		} else if (isSessionSummaryPageOpen) {
@@ -3417,6 +3437,7 @@ function updateInputActionStates() {
 			dialogTitleSummaryBtnEl.title = "Open Session Summary";
 			dialogTitleSummaryBtnEl.setAttribute("aria-label", "Open Session Summary");
 		}
+		syncSummaryNoticeHighlightState();
 	}
 	if (sessionSummaryDetachBtnEl) {
 		sessionSummaryDetachBtnEl.disabled = !hasActiveSession;
@@ -4309,8 +4330,10 @@ if (dialogHeaderSummarizeBtnEl) {
 			window.alert("No messages available to summarize.");
 			return;
 		}
+		const summarySessionId = active.id;
 
 		dialogHeaderSummarizeBusy = true;
+		dialogHeaderSummarizeBusySessionId = summarySessionId;
 		dialogHeaderSummarizeBtnEl.classList.add("is-busy");
 		dialogHeaderSummarizeBtnEl.setAttribute("aria-busy", "true");
 		updateInputActionStates();
@@ -4321,17 +4344,22 @@ if (dialogHeaderSummarizeBtnEl) {
 		try {
 			const modelId = typeof active.modelId === "string" ? active.modelId.trim() : "";
 			const result = await window.summarizeSessionMessages({
-				sessionId: active.id,
+				sessionId: summarySessionId,
 				summarySource,
 				modelId
 			});
-			active.summaryMarkdown = buildSessionSummaryMarkdown(result.reply, {
-				sessionName: active.name,
-				sessionId: active.id
+			const targetSession = sessions.find((session) => session.id === summarySessionId);
+			if (!targetSession) {
+				return;
+			}
+
+			targetSession.summaryMarkdown = buildSessionSummaryMarkdown(result.reply, {
+				sessionName: targetSession.name,
+				sessionId: targetSession.id
 			});
 			saveState();
 			renderSessionSummaryPage();
-			showSummaryNoticeFeedback();
+			showSummaryNoticeFeedback(summarySessionId);
 		} catch (error) {
 			const message = error instanceof Error ? error.message : String(error);
 			window.alert(`Summarize failed: ${message}`);
@@ -4340,6 +4368,7 @@ if (dialogHeaderSummarizeBtnEl) {
 			dialogHeaderSummarizeBtnEl.classList.remove("is-busy");
 			dialogHeaderSummarizeBtnEl.setAttribute("aria-busy", "false");
 			dialogHeaderSummarizeBusy = false;
+			dialogHeaderSummarizeBusySessionId = "";
 			updateInputActionStates();
 		}
 	});
