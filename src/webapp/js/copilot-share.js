@@ -159,10 +159,16 @@ function initCopilotSharePanel() {
 	});
 
 	document.addEventListener("keydown", (event) => {
-		if (event.key === "Escape") {
-			closeMenu();
-			copilotShareMenuBtnEl.focus();
+		if (event.key !== "Escape" || event.defaultPrevented) {
+			return;
 		}
+
+		if (copilotShareMenuEl.hidden) {
+			return;
+		}
+
+		closeMenu();
+		copilotShareMenuBtnEl.focus();
 	});
 
 	updateMenuActionState();

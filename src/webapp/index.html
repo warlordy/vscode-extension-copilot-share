@@ -37,6 +37,9 @@
 						<button class="primary-btn" id="newSessionBtn" type="button" aria-label="New Session" title="New Session">
 							<span class="new-session-icon" aria-hidden="true"></span>
 						</button>
+						<button class="app-search-btn" id="appSearchBtn" type="button" aria-label="Search All Sessions" title="Search All Sessions">
+							<span class="app-search-icon" aria-hidden="true"></span>
+						</button>
 						<div class="copilot-share-menu">
 							<button
 								class="copilot-share-menu-trigger"
@@ -77,6 +80,17 @@
 					</div>
 				</div>
 			</div>
+			<div class="sidebar-search-bar" id="appSearchBar" hidden>
+				<button class="sidebar-search-drag-handle" id="appSearchDragHandle" type="button" aria-label="Drag Search Bar" title="Drag Search Bar"></button>
+				<input class="sidebar-search-input" id="appSearchInput" type="text" placeholder="Search sessions" autocomplete="off" />
+				<button class="dialog-header-search-option" id="appSearchCaseBtn" type="button" aria-pressed="false" title="Match Case">Aa</button>
+				<button class="dialog-header-search-option" id="appSearchWholeWordBtn" type="button" aria-pressed="false" title="Match Whole Word"><span class="search-ab-underline">ab</span></button>
+				<button class="dialog-header-search-option" id="appSearchRegexBtn" type="button" aria-pressed="false" title="Use Regular Expression">.*</button>
+				<button class="dialog-header-search-nav" id="appSearchPrevBtn" type="button" title="Previous Match" aria-label="Previous Match">&lt;</button>
+				<span class="dialog-header-search-info" id="appSearchMatchInfo">0/0</span>
+				<button class="dialog-header-search-nav" id="appSearchNextBtn" type="button" title="Next Match" aria-label="Next Match">&gt;</button>
+				<button class="dialog-header-search-exit" id="closeAppSearchBtn" type="button" aria-label="Exit Search" title="Exit Search">&times;</button>
+			</div>
 			<ul class="session-list" id="sessionList"></ul>
 		</aside>
 
@@ -110,7 +124,7 @@
 					</div>
 				</div>
 				<div class="dialog-header-actions">
-					<button class="dialog-header-search-btn" id="dialogHeaderSearchBtn" type="button" aria-label="Search" title="Search">
+					<button class="dialog-header-search-btn" id="dialogHeaderSearchBtn" type="button" aria-label="Search Current Session" title="Search Current Session">
 						<span class="dialog-header-search-icon" aria-hidden="true"></span>
 					</button>
 					<div class="dialog-header-search-bar" id="messageSearchBar" hidden>

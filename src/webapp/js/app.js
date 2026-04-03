@@ -25,6 +25,27 @@ function escapeRegExp(value) {
 	return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+function buildSearchPattern(query, { caseSensitive = false, useRegex = false, useWholeWord = false } = {}) {
+	const rawSource = String(query || "").trim();
+	if (!rawSource) {
+		return null;
+	}
+
+	const flags = caseSensitive ? "g" : "gi";
+	if (useRegex) {
+		try {
+			const source = useWholeWord ? `\\b(?:${rawSource})\\b` : rawSource;
+			return new RegExp(source, flags);
+		} catch {
+			return null;
+		}
+	}
+
+	const escapedSource = escapeRegExp(rawSource);
+	const source = useWholeWord ? `\\b${escapedSource}\\b` : escapedSource;
+	return new RegExp(source, flags);
+}
+
 
 function highlightTextNodeMatches(textNode, pattern, highlights) {
 	const value = textNode.nodeValue || "";
@@ -70,20 +91,13 @@ function highlightMessageMatches(query, { caseSensitive = false, useRegex = fals
 		return [];
 	}
 
-	let pattern = null;
-	const flags = caseSensitive ? "g" : "gi";
-	const rawSource = String(query || "");
-	if (useRegex) {
-		try {
-			const source = useWholeWord ? `\\b(?:${rawSource})\\b` : rawSource;
-			pattern = new RegExp(source, flags);
-		} catch {
-			return [];
-		}
-	} else {
-		const escapedSource = escapeRegExp(rawSource);
-		const source = useWholeWord ? `\\b${escapedSource}\\b` : escapedSource;
-		pattern = new RegExp(source, flags);
+	const pattern = buildSearchPattern(query, {
+		caseSensitive,
+		useRegex,
+		useWholeWord
+	});
+	if (!pattern) {
+		return [];
 	}
 	const messageBubbles = messagesEl.querySelectorAll(".message-row .bubble");
 	const highlights = [];
@@ -128,6 +142,17 @@ const dialogHeaderSearchBtnEl = document.getElementById("dialogHeaderSearchBtn")
 const messageSearchCaseBtnEl = document.getElementById("messageSearchCaseBtn");
 const messageSearchRegexBtnEl = document.getElementById("messageSearchRegexBtn");
 const messageSearchWholeWordBtnEl = document.getElementById("messageSearchWholeWordBtn");
+const appSearchBtnEl = document.getElementById("appSearchBtn");
+const appSearchBarEl = document.getElementById("appSearchBar");
+const appSearchInputEl = document.getElementById("appSearchInput");
+const appSearchPrevBtnEl = document.getElementById("appSearchPrevBtn");
+const appSearchNextBtnEl = document.getElementById("appSearchNextBtn");
+const appSearchMatchInfoEl = document.getElementById("appSearchMatchInfo");
+const closeAppSearchBtnEl = document.getElementById("closeAppSearchBtn");
+const appSearchDragHandleEl = document.getElementById("appSearchDragHandle");
+const appSearchCaseBtnEl = document.getElementById("appSearchCaseBtn");
+const appSearchRegexBtnEl = document.getElementById("appSearchRegexBtn");
+const appSearchWholeWordBtnEl = document.getElementById("appSearchWholeWordBtn");
 
 let searchMatches = [];
 let currentMatchIdx = -1;
@@ -138,6 +163,29 @@ let isSearchWholeWord = false;
 let lastSearchCaseSensitive = false;
 let lastSearchRegex = false;
 let lastSearchWholeWord = false;
+let appSearchMatchedSessionIds = [];
+const appSearchMatchedSessionIdSet = new Set();
+let appSearchCurrentMatchIdx = -1;
+let lastAppSearchQuery = "";
+let isAppSearchCaseSensitive = false;
+let isAppSearchRegex = false;
+let isAppSearchWholeWord = false;
+let lastAppSearchCaseSensitive = false;
+let lastAppSearchRegex = false;
+let lastAppSearchWholeWord = false;
+let appSearchFloatingLeft = null;
+let appSearchFloatingTop = null;
+let appSearchFloatingRight = null;
+let appSearchFloatingBottom = null;
+let appSearchDragPointerId = null;
+let appSearchDragOffsetX = 0;
+let appSearchDragOffsetY = 0;
+const appSearchFloatingEdgePadding = {
+	left: 8,
+	top: 8,
+	right: 8,
+	bottom: 8
+};
 
 function updateSearchOptionButtons() {
 	if (messageSearchCaseBtnEl) {
@@ -276,7 +324,7 @@ function refreshMessageSearch({ scrollToActive = false, resetIndex = false } = {
 }
 
 
-function openMessageSearchBar() {
+function openMessageSearchBar({ focusInput = true } = {}) {
 	if (!messageSearchBarEl || !dialogHeaderSearchBtnEl) {
 		return;
 	}
@@ -284,12 +332,14 @@ function openMessageSearchBar() {
 	dialogHeaderSearchBtnEl.hidden = true;
 	messageSearchBarEl.hidden = false;
 	updateSearchOptionButtons();
-	window.requestAnimationFrame(() => {
-		if (messageSearchInputEl) {
-			messageSearchInputEl.focus();
-			messageSearchInputEl.select();
-		}
-	});
+	if (focusInput) {
+		window.requestAnimationFrame(() => {
+			if (messageSearchInputEl) {
+				messageSearchInputEl.focus();
+				messageSearchInputEl.select();
+			}
+		});
+	}
 	refreshMessageSearch();
 }
 
@@ -371,6 +421,515 @@ function handleMessageSearchWheel(event) {
 	}
 }
 
+function getAppSearchOptions() {
+	return {
+		caseSensitive: isAppSearchCaseSensitive,
+		useRegex: isAppSearchRegex,
+		useWholeWord: isAppSearchWholeWord
+	};
+}
+
+function isSidebarCollapsedLayout() {
+	return Boolean(appEl && appEl.classList.contains("sidebar-collapsed"));
+}
+
+function clearAppSearchFloatingInlinePosition() {
+	if (!appSearchBarEl) {
+		return;
+	}
+
+	appSearchBarEl.style.left = "";
+	appSearchBarEl.style.top = "";
+	appSearchBarEl.style.right = "";
+	appSearchBarEl.style.bottom = "";
+	appSearchBarEl.style.transform = "";
+}
+
+function clampAppSearchFloatingPosition(left, top) {
+	if (!appSearchBarEl) {
+		return appSearchFloatingEdgePadding;
+	}
+
+	const leftPadding = appSearchFloatingEdgePadding.left;
+	const topPadding = appSearchFloatingEdgePadding.top;
+	const rightPadding = appSearchFloatingEdgePadding.right;
+	const bottomPadding = appSearchFloatingEdgePadding.bottom;
+	const barWidth = appSearchBarEl.offsetWidth || 0;
+	const barHeight = appSearchBarEl.offsetHeight || 0;
+	const minLeft = leftPadding;
+	const minTop = topPadding;
+	const minRight = rightPadding;
+	const minBottom = bottomPadding;
+	const maxLeft = Math.max(minLeft, window.innerWidth - barWidth - rightPadding);
+	const maxTop = Math.max(minTop, window.innerHeight - barHeight - bottomPadding);
+	const maxRight = Math.max(minRight, window.innerWidth - barWidth - leftPadding);
+	const maxBottom = Math.max(minBottom, window.innerHeight - barHeight - topPadding);
+	const clampedLeft = Math.min(Math.max(minLeft, left), maxLeft);
+	const clampedTop = Math.min(Math.max(minTop, top), maxTop);
+	const right = window.innerWidth - clampedLeft - barWidth;
+	const bottom = window.innerHeight - clampedTop - barHeight;
+
+	return {
+		left: clampedLeft,
+		top: clampedTop,
+		right: Math.min(Math.max(minRight, right), maxRight),
+		bottom: Math.min(Math.max(minBottom, bottom), maxBottom)
+	};
+}
+
+function applyAppSearchFloatingPosition() {
+	if (!appSearchBarEl) {
+		return;
+	}
+
+	if (!Number.isFinite(appSearchFloatingLeft) || !Number.isFinite(appSearchFloatingTop)) {
+		clearAppSearchFloatingInlinePosition();
+		return;
+	}
+
+	const clamped = clampAppSearchFloatingPosition(appSearchFloatingLeft, appSearchFloatingTop);
+	appSearchFloatingLeft = clamped.left;
+	appSearchFloatingTop = clamped.top;
+	appSearchFloatingRight = clamped.right;
+	appSearchFloatingBottom = clamped.bottom;
+	appSearchBarEl.style.left = `${clamped.left}px`;
+	appSearchBarEl.style.top = `${clamped.top}px`;
+	appSearchBarEl.style.right = "";
+	appSearchBarEl.style.bottom = "";
+	appSearchBarEl.style.transform = "none";
+}
+
+function finishAppSearchBarDrag() {
+	appSearchDragPointerId = null;
+	if (appSearchBarEl) {
+		appSearchBarEl.classList.remove("is-dragging");
+	}
+}
+
+function handleAppSearchBarDragMove(event) {
+	if (!(event instanceof PointerEvent)) {
+		return;
+	}
+
+	if (event.pointerId !== appSearchDragPointerId || !appSearchBarEl || appSearchBarEl.hidden) {
+		return;
+	}
+
+	const rawLeft = event.clientX - appSearchDragOffsetX;
+	const rawTop = event.clientY - appSearchDragOffsetY;
+	const clamped = clampAppSearchFloatingPosition(rawLeft, rawTop);
+	appSearchFloatingLeft = clamped.left;
+	appSearchFloatingTop = clamped.top;
+	appSearchFloatingRight = clamped.right;
+	appSearchFloatingBottom = clamped.bottom;
+	appSearchBarEl.style.left = `${clamped.left}px`;
+	appSearchBarEl.style.top = `${clamped.top}px`;
+	appSearchBarEl.style.right = "";
+	appSearchBarEl.style.bottom = "";
+	appSearchBarEl.style.transform = "none";
+	event.preventDefault();
+}
+
+function handleAppSearchBarDragEnd(event) {
+	if (!(event instanceof PointerEvent) || event.pointerId !== appSearchDragPointerId) {
+		return;
+	}
+
+	if (appSearchDragHandleEl instanceof HTMLElement && appSearchDragHandleEl.hasPointerCapture(event.pointerId)) {
+		appSearchDragHandleEl.releasePointerCapture(event.pointerId);
+	}
+	finishAppSearchBarDrag();
+}
+
+function startAppSearchBarDrag(event) {
+	if (!(event instanceof PointerEvent) || event.button !== 0) {
+		return;
+	}
+
+	if (!appSearchBarEl || appSearchBarEl.hidden) {
+		return;
+	}
+
+	const barRect = appSearchBarEl.getBoundingClientRect();
+	const left = Number.isFinite(appSearchFloatingLeft) ? appSearchFloatingLeft : barRect.left;
+	const top = Number.isFinite(appSearchFloatingTop) ? appSearchFloatingTop : barRect.top;
+	const clamped = clampAppSearchFloatingPosition(left, top);
+	appSearchFloatingLeft = clamped.left;
+	appSearchFloatingTop = clamped.top;
+	appSearchFloatingRight = clamped.right;
+	appSearchFloatingBottom = clamped.bottom;
+	appSearchBarEl.style.left = `${clamped.left}px`;
+	appSearchBarEl.style.top = `${clamped.top}px`;
+	appSearchBarEl.style.right = "";
+	appSearchBarEl.style.bottom = "";
+	appSearchBarEl.style.transform = "none";
+	appSearchDragOffsetX = event.clientX - clamped.left;
+	appSearchDragOffsetY = event.clientY - clamped.top;
+	appSearchDragPointerId = event.pointerId;
+	appSearchBarEl.classList.add("is-dragging");
+	if (appSearchDragHandleEl instanceof HTMLElement) {
+		appSearchDragHandleEl.setPointerCapture(event.pointerId);
+	}
+	event.preventDefault();
+}
+
+function updateAppSearchOptionButtons() {
+	if (appSearchCaseBtnEl) {
+		appSearchCaseBtnEl.setAttribute("aria-pressed", isAppSearchCaseSensitive ? "true" : "false");
+	}
+
+	if (appSearchRegexBtnEl) {
+		appSearchRegexBtnEl.setAttribute("aria-pressed", isAppSearchRegex ? "true" : "false");
+	}
+
+	if (appSearchWholeWordBtnEl) {
+		appSearchWholeWordBtnEl.setAttribute("aria-pressed", isAppSearchWholeWord ? "true" : "false");
+	}
+}
+
+function updateAppSearchNavigationState() {
+	const hasMatches = appSearchMatchedSessionIds.length > 0;
+	if (appSearchPrevBtnEl) {
+		appSearchPrevBtnEl.disabled = !hasMatches;
+	}
+	if (appSearchNextBtnEl) {
+		appSearchNextBtnEl.disabled = !hasMatches;
+	}
+}
+
+function updateAppSearchMatchInfo() {
+	if (!appSearchMatchInfoEl) {
+		return;
+	}
+
+	if (!appSearchMatchedSessionIds.length || appSearchCurrentMatchIdx < 0) {
+		appSearchMatchInfoEl.textContent = "0/0";
+		return;
+	}
+
+	appSearchMatchInfoEl.textContent = `${appSearchCurrentMatchIdx + 1}/${appSearchMatchedSessionIds.length}`;
+}
+
+function syncAppSearchMatchedSessionSet() {
+	appSearchMatchedSessionIdSet.clear();
+	for (const sessionId of appSearchMatchedSessionIds) {
+		appSearchMatchedSessionIdSet.add(sessionId);
+	}
+}
+
+function syncSessionListAppSearchHighlights({ scrollToCurrent = false } = {}) {
+	renderSessionList();
+
+	if (!scrollToCurrent || appSearchCurrentMatchIdx < 0) {
+		return;
+	}
+
+	const currentMatchSessionId = appSearchMatchedSessionIds[appSearchCurrentMatchIdx];
+	if (!currentMatchSessionId || !sessionListEl) {
+		return;
+	}
+
+	const currentItem = sessionListEl.querySelector(`.session-item[data-id="${CSS.escape(currentMatchSessionId)}"]`);
+	if (currentItem instanceof HTMLElement) {
+		currentItem.scrollIntoView({ behavior: "smooth", block: "nearest" });
+	}
+}
+
+function collectMatchedSessionIdsForAppSearch(query, options = {}) {
+	const pattern = buildSearchPattern(query, options);
+	if (!pattern) {
+		return [];
+	}
+
+	const matchedIds = [];
+	for (const session of sessions) {
+		const matched = Array.isArray(session.messages) && session.messages.some((message) => {
+			const text = String(message?.text || "");
+			pattern.lastIndex = 0;
+			return pattern.test(text);
+		});
+
+		if (matched) {
+			matchedIds.push(session.id);
+		}
+	}
+
+	return matchedIds;
+}
+
+function applySessionSearchFromAppQuery(query, options = {}) {
+	const normalizedQuery = String(query || "").trim();
+	if (!normalizedQuery) {
+		return;
+	}
+
+	isSearchCaseSensitive = Boolean(options.caseSensitive);
+	isSearchRegex = Boolean(options.useRegex);
+	isSearchWholeWord = Boolean(options.useWholeWord);
+	updateSearchOptionButtons();
+	openMessageSearchBar({ focusInput: options.focusMessageSearchInput !== false });
+	if (messageSearchInputEl) {
+		messageSearchInputEl.value = normalizedQuery;
+	}
+	runMessageSearch();
+}
+
+function setCurrentAppSearchMatch(index, { scroll = true, openSessionForMatch = false, preserveAppSearchFocus = false } = {}) {
+	if (!appSearchMatchedSessionIds.length) {
+		appSearchCurrentMatchIdx = -1;
+		updateAppSearchMatchInfo();
+		updateAppSearchNavigationState();
+		syncSessionListAppSearchHighlights();
+		return;
+	}
+
+	const normalizedIndex = ((index % appSearchMatchedSessionIds.length) + appSearchMatchedSessionIds.length) % appSearchMatchedSessionIds.length;
+	appSearchCurrentMatchIdx = normalizedIndex;
+	updateAppSearchMatchInfo();
+	updateAppSearchNavigationState();
+	syncSessionListAppSearchHighlights({ scrollToCurrent: scroll });
+
+	if (!openSessionForMatch) {
+		return;
+	}
+
+	const sessionId = appSearchMatchedSessionIds[appSearchCurrentMatchIdx];
+	if (!sessionId) {
+		return;
+	}
+
+	openSession(sessionId, false, {
+		appSearchQuery: appSearchInputEl ? appSearchInputEl.value.trim() : "",
+		appSearchOptions: getAppSearchOptions(),
+		focusMessageSearchInput: !preserveAppSearchFocus
+	});
+}
+
+function refreshAppSearch({ scrollToCurrent = false, resetIndex = false } = {}) {
+	if (!appSearchBarEl || appSearchBarEl.hidden) {
+		return;
+	}
+
+	const query = appSearchInputEl ? appSearchInputEl.value.trim() : "";
+	if (!query) {
+		appSearchMatchedSessionIds = [];
+		syncAppSearchMatchedSessionSet();
+		appSearchCurrentMatchIdx = -1;
+		lastAppSearchQuery = "";
+		lastAppSearchCaseSensitive = isAppSearchCaseSensitive;
+		lastAppSearchRegex = isAppSearchRegex;
+		lastAppSearchWholeWord = isAppSearchWholeWord;
+		updateAppSearchMatchInfo();
+		updateAppSearchNavigationState();
+		syncSessionListAppSearchHighlights();
+		return;
+	}
+
+	const previousMatchedSessionId = !resetIndex && appSearchCurrentMatchIdx >= 0
+		? appSearchMatchedSessionIds[appSearchCurrentMatchIdx]
+		: "";
+
+	appSearchMatchedSessionIds = collectMatchedSessionIdsForAppSearch(query, getAppSearchOptions());
+	syncAppSearchMatchedSessionSet();
+
+	if (!appSearchMatchedSessionIds.length) {
+		appSearchCurrentMatchIdx = -1;
+		lastAppSearchQuery = query;
+		lastAppSearchCaseSensitive = isAppSearchCaseSensitive;
+		lastAppSearchRegex = isAppSearchRegex;
+		lastAppSearchWholeWord = isAppSearchWholeWord;
+		updateAppSearchMatchInfo();
+		updateAppSearchNavigationState();
+		syncSessionListAppSearchHighlights();
+		return;
+	}
+
+	let nextIndex = 0;
+	if (previousMatchedSessionId) {
+		const previousIndex = appSearchMatchedSessionIds.indexOf(previousMatchedSessionId);
+		if (previousIndex >= 0) {
+			nextIndex = previousIndex;
+		}
+	}
+
+	lastAppSearchQuery = query;
+	lastAppSearchCaseSensitive = isAppSearchCaseSensitive;
+	lastAppSearchRegex = isAppSearchRegex;
+	lastAppSearchWholeWord = isAppSearchWholeWord;
+	setCurrentAppSearchMatch(nextIndex, { scroll: scrollToCurrent });
+}
+
+function openAppSearchBar() {
+	if (!appSearchBarEl || !appSearchBtnEl) {
+		return;
+	}
+
+	appSearchBarEl.hidden = false;
+	applyAppSearchFloatingPosition();
+	updateAppSearchOptionButtons();
+	window.requestAnimationFrame(() => {
+		if (appSearchInputEl) {
+			appSearchInputEl.focus();
+			appSearchInputEl.select();
+		}
+	});
+	refreshAppSearch();
+}
+
+function closeAppSearchBar({ restoreTriggerFocus = true } = {}) {
+	if (!appSearchBarEl || !appSearchBtnEl) {
+		return;
+	}
+
+	finishAppSearchBarDrag();
+	appSearchBarEl.hidden = true;
+	if (appSearchInputEl) {
+		appSearchInputEl.value = "";
+	}
+	appSearchMatchedSessionIds = [];
+	syncAppSearchMatchedSessionSet();
+	appSearchCurrentMatchIdx = -1;
+	lastAppSearchQuery = "";
+	lastAppSearchCaseSensitive = isAppSearchCaseSensitive;
+	lastAppSearchRegex = isAppSearchRegex;
+	lastAppSearchWholeWord = isAppSearchWholeWord;
+	updateAppSearchMatchInfo();
+	updateAppSearchNavigationState();
+	syncSessionListAppSearchHighlights();
+	if (restoreTriggerFocus) {
+		appSearchBtnEl.focus();
+	}
+}
+
+function toggleAppSearchBar() {
+	if (!appSearchBarEl) {
+		return;
+	}
+
+	if (appSearchBarEl.hidden) {
+		openAppSearchBar();
+		return;
+	}
+
+	closeAppSearchBar();
+}
+
+function runAppSearch() {
+	refreshAppSearch({ scrollToCurrent: true, resetIndex: true });
+	if (!appSearchMatchedSessionIds.length) {
+		updateAppSearchMatchInfo();
+	}
+	if (appSearchInputEl) {
+		appSearchInputEl.focus();
+		appSearchInputEl.setSelectionRange(appSearchInputEl.value.length, appSearchInputEl.value.length);
+	}
+}
+
+function gotoPrevAppSearchMatch({ preserveAppSearchFocus = false } = {}) {
+	if (!appSearchMatchedSessionIds.length) {
+		return;
+	}
+
+	let prevIndex = appSearchCurrentMatchIdx - 1;
+	if (prevIndex < 0) {
+		prevIndex = appSearchMatchedSessionIds.length - 1;
+	}
+	setCurrentAppSearchMatch(prevIndex, { openSessionForMatch: true, preserveAppSearchFocus });
+	if (appSearchInputEl) {
+		appSearchInputEl.focus();
+		appSearchInputEl.setSelectionRange(appSearchInputEl.value.length, appSearchInputEl.value.length);
+	}
+}
+
+function gotoNextAppSearchMatch({ preserveAppSearchFocus = false } = {}) {
+	if (!appSearchMatchedSessionIds.length) {
+		return;
+	}
+
+	let nextIndext = appSearchCurrentMatchIdx + 1;
+	if (nextIndext >= appSearchMatchedSessionIds.length) {
+		nextIndext = 0;
+	}
+	setCurrentAppSearchMatch(nextIndext, { openSessionForMatch: true, preserveAppSearchFocus });
+	if (appSearchInputEl) {
+		appSearchInputEl.focus();
+		appSearchInputEl.setSelectionRange(appSearchInputEl.value.length, appSearchInputEl.value.length);
+	}
+}
+
+function navigateAppSearchMatchesByWheel(direction) {
+	if (!appSearchBarEl || appSearchBarEl.hidden || !appSearchMatchedSessionIds.length) {
+		return false;
+	}
+
+	if (direction < 0) {
+		gotoPrevAppSearchMatch();
+		return true;
+	}
+
+	if (direction > 0) {
+		gotoNextAppSearchMatch();
+		return true;
+	}
+
+	return false;
+}
+
+function handleAppSearchWheel(event) {
+	const direction = event.deltaY < 0 ? -1 : event.deltaY > 0 ? 1 : 0;
+	if (!direction) {
+		return;
+	}
+
+	const handled = navigateAppSearchMatchesByWheel(direction);
+	if (handled) {
+		event.preventDefault();
+	}
+}
+
+function toggleAppSearchCaseSensitive() {
+	isAppSearchCaseSensitive = !isAppSearchCaseSensitive;
+	updateAppSearchOptionButtons();
+	refreshAppSearch({ scrollToCurrent: true, resetIndex: true });
+	if (appSearchInputEl) {
+		appSearchInputEl.focus();
+	}
+}
+
+function toggleAppSearchRegex() {
+	isAppSearchRegex = !isAppSearchRegex;
+	updateAppSearchOptionButtons();
+	refreshAppSearch({ scrollToCurrent: true, resetIndex: true });
+	if (appSearchInputEl) {
+		appSearchInputEl.focus();
+	}
+}
+
+function toggleAppSearchWholeWord() {
+	isAppSearchWholeWord = !isAppSearchWholeWord;
+	updateAppSearchOptionButtons();
+	refreshAppSearch({ scrollToCurrent: true, resetIndex: true });
+	if (appSearchInputEl) {
+		appSearchInputEl.focus();
+	}
+}
+
+function getOpenSessionOptionsForAppSearchMatch(item) {
+	if (!(item instanceof HTMLElement) || !item.classList.contains("session-item-app-match")) {
+		return null;
+	}
+
+	const query = appSearchInputEl ? appSearchInputEl.value.trim() : "";
+	if (!query) {
+		return null;
+	}
+
+	return {
+		appSearchQuery: query,
+		appSearchOptions: getAppSearchOptions()
+	};
+}
+
 if (dialogHeaderSearchBtnEl) {
 	dialogHeaderSearchBtnEl.addEventListener("click", openMessageSearchBar);
 }
@@ -422,10 +981,70 @@ if (messageSearchWholeWordBtnEl) {
 if (messageSearchBarEl) {
 	messageSearchBarEl.addEventListener("wheel", handleMessageSearchWheel, { passive: false });
 }
+if (appSearchBtnEl) {
+	appSearchBtnEl.addEventListener("click", toggleAppSearchBar);
+}
+if (closeAppSearchBtnEl) {
+	closeAppSearchBtnEl.addEventListener("click", closeAppSearchBar);
+}
+if (appSearchInputEl) {
+	appSearchInputEl.addEventListener("keydown", (event) => {
+		if (event.key === "Enter") {
+			event.preventDefault();
+			const query = appSearchInputEl.value.trim();
+			const canNavigateExistingResults =
+				Boolean(query)
+				&& query === lastAppSearchQuery
+				&& isAppSearchCaseSensitive === lastAppSearchCaseSensitive
+				&& isAppSearchRegex === lastAppSearchRegex
+				&& isAppSearchWholeWord === lastAppSearchWholeWord
+				&& appSearchMatchedSessionIds.length > 0
+				&& appSearchCurrentMatchIdx >= 0;
+
+			if (canNavigateExistingResults) {
+				gotoNextAppSearchMatch({ preserveAppSearchFocus: true });
+			} else {
+				runAppSearch();
+			}
+		}
+
+		if (event.key === "Escape") {
+			event.preventDefault();
+			closeAppSearchBar({ restoreTriggerFocus: false });
+		}
+	});
+}
+if (appSearchPrevBtnEl) {
+	appSearchPrevBtnEl.addEventListener("click", gotoPrevAppSearchMatch);
+}
+if (appSearchNextBtnEl) {
+	appSearchNextBtnEl.addEventListener("click", gotoNextAppSearchMatch);
+}
+if (appSearchCaseBtnEl) {
+	appSearchCaseBtnEl.addEventListener("click", toggleAppSearchCaseSensitive);
+}
+if (appSearchRegexBtnEl) {
+	appSearchRegexBtnEl.addEventListener("click", toggleAppSearchRegex);
+}
+if (appSearchWholeWordBtnEl) {
+	appSearchWholeWordBtnEl.addEventListener("click", toggleAppSearchWholeWord);
+}
+if (appSearchBarEl) {
+	appSearchBarEl.addEventListener("wheel", handleAppSearchWheel, { passive: false });
+}
+if (appSearchDragHandleEl) {
+	appSearchDragHandleEl.addEventListener("pointerdown", startAppSearchBarDrag);
+}
+window.addEventListener("pointermove", handleAppSearchBarDragMove);
+window.addEventListener("pointerup", handleAppSearchBarDragEnd);
+window.addEventListener("pointercancel", handleAppSearchBarDragEnd);
 
 updateSearchOptionButtons();
 updateSearchMatchInfo();
 updateSearchNavigationState();
+updateAppSearchOptionButtons();
+updateAppSearchMatchInfo();
+updateAppSearchNavigationState();
 // ====== Storage keys ======
 const STORAGE_KEY = "llm-dialog-sessions-v1";
 const ACTIVE_KEY = "llm-dialog-active-session";
@@ -1935,6 +2554,8 @@ function applySidebarState() {
 		sidebarToggleBtnEl.setAttribute("title", shouldCollapse ? "Expand sidebar" : "Collapse sidebar");
 	}
 
+	applyAppSearchFloatingPosition();
+
 	requestMenuPopupClamp();
 }
 
@@ -2191,6 +2812,11 @@ function renderSessionList() {
 		.map((session) => {
 			const latest = session.messages[session.messages.length - 1];
 			const activeClass = session.id === activeSessionId ? "active" : "";
+			const isAppSearchMatch = appSearchMatchedSessionIdSet.has(session.id);
+			const currentAppSearchSessionId = appSearchCurrentMatchIdx >= 0 ? appSearchMatchedSessionIds[appSearchCurrentMatchIdx] : "";
+			const appSearchMatchClass = isAppSearchMatch ? "session-item-app-match" : "";
+			const appSearchCurrentClass = isAppSearchMatch && currentAppSearchSessionId === session.id ? "session-item-app-match-current" : "";
+			const itemClass = ["session-item", activeClass, appSearchMatchClass, appSearchCurrentClass].filter(Boolean).join(" ");
 			const isOpen = session.isOpen !== false;
 			const isLocked = !isOpen;
 			const lockTitle = isOpen ? "Lock session" : "Unlock session";
@@ -2203,7 +2829,7 @@ function renderSessionList() {
 			const sessionMenuId = `sessionActionMenu_${session.id}`;
 
 			return `
-				<li class="session-item ${activeClass}" data-id="${session.id}" role="button" tabindex="0" aria-label="Open ${safeName}" draggable="true">
+				<li class="${itemClass}" data-id="${session.id}" role="button" tabindex="0" aria-label="Open ${safeName}" draggable="true">
 					<div class="session-icon">${iconText}</div>
 					<div class="session-main">
 						<div class="session-top">
@@ -2332,6 +2958,9 @@ function renderAll({ preserveMessageScroll = false } = {}) {
 		window.syncModelPickerForActiveSession();
 	}
 	updateInputActionStates();
+	if (appSearchBarEl && !appSearchBarEl.hidden) {
+		refreshAppSearch();
+	}
 }
 
 function updateInputActionStates() {
@@ -2394,6 +3023,13 @@ function updateInputActionStates() {
 		dialogHeaderSearchBtnEl.disabled = !hasActiveSession;
 		if (dialogHeaderSearchBtnEl.disabled && !messageSearchBarEl?.hidden) {
 			closeMessageSearchBar();
+		}
+	}
+	if (appSearchBtnEl) {
+		const hasAnySession = sessions.length > 0;
+		appSearchBtnEl.disabled = !hasAnySession;
+		if (appSearchBtnEl.disabled && appSearchBarEl && !appSearchBarEl.hidden) {
+			closeAppSearchBar();
 		}
 	}
 	if (sendBtnEl) {
@@ -2532,7 +3168,7 @@ function closeInputHintMenuIfNeeded(target) {
 }
 
 // ====== User actions ======
-function openSession(sessionId, fromListClick = false) {
+function openSession(sessionId, fromListClick = false, options = {}) {
 	const target = sessions.find((item) => item.id === sessionId);
 	if (!target) {
 		return;
@@ -2542,6 +3178,13 @@ function openSession(sessionId, fromListClick = false) {
 	resetPromptHistoryNavigation();
 	renderAll();
 	saveState();
+
+	if (options && options.appSearchQuery) {
+		applySessionSearchFromAppQuery(options.appSearchQuery, {
+			...(options.appSearchOptions || {}),
+			focusMessageSearchInput: options.focusMessageSearchInput
+		});
+	}
 
 	if (fromListClick && window.matchMedia("(max-width: 760px)").matches) {
 		appEl.classList.add("show-dialog");
@@ -2866,7 +3509,7 @@ sessionListEl.addEventListener("click", (event) => {
 	if (!item) {
 		return;
 	}
-	openSession(item.dataset.id, true);
+	openSession(item.dataset.id, true, getOpenSessionOptionsForAppSearchMatch(item));
 });
 
 sessionListEl.addEventListener("dragstart", (event) => {
@@ -2980,7 +3623,7 @@ sessionListEl.addEventListener("keydown", (event) => {
 		return;
 	}
 	event.preventDefault();
-	openSession(item.dataset.id, true);
+	openSession(item.dataset.id, true, getOpenSessionOptionsForAppSearchMatch(item));
 });
 
 sessionListEl.addEventListener("pointerover", (event) => {
@@ -3536,6 +4179,7 @@ window.addEventListener("resize", () => {
 		appEl.classList.remove("show-dialog");
 	}
 	applySidebarState();
+	applyAppSearchFloatingPosition();
 	hideSessionHoverPopup();
 	hideMessageContextMenu();
 	requestMenuPopupClamp();
