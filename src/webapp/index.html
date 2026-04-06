@@ -195,18 +195,24 @@
 			<div class="prompt-suggestion-popup" id="promptSuggestionPopup" role="listbox" aria-label="Similar historical prompts" hidden></div>
 
 			<footer class="input-area">	
+				
 				<div class="input-row">
 					<details class="input-hint" id="inputHintMenu">
 						<summary>Input Tips</summary>
 						<div class="input-hint-popover">
 							<ol class="input-hint-list">
-								<li><div class="input-hint-item"><kbd>Enter</kbd><span>: Send / Cancel streaming</span></div></li>
+								<li><div class="input-hint-item"><kbd>Enter</kbd><span>: Send Request</span></div></li>
 								<li><div class="input-hint-item"><kbd>Shift</kbd><span>+</span><kbd>Enter</kbd><span>: New line</span></div></li>
 								<li><div class="input-hint-item"><kbd>Mouse Wheel</kbd><span>: Browse history prompts</span></div></li>
 								<li><div class="input-hint-item"><kbd>Alt</kbd><span>+</span><kbd>↑</kbd><span>/</span><kbd>↓</kbd><span>: Browse history prompts</span></div></li>
 							</ol>
 						</div>
 					</details>
+					<div class="input-area-resizer-row">
+						<button class="input-area-resizer" id="inputAreaResizer" type="button" aria-label="Resize Input Area" title="Drag to resize input area">
+							<span class="input-area-resizer-grip" aria-hidden="true">↕️</span>
+						</button>
+					</div>
 					<div class="input-actions">
 						<div class="model-picker" id="modelPicker">
 							<button

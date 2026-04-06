@@ -1112,6 +1112,10 @@ const sessionSummaryClearBtnEl = document.getElementById("sessionSummaryClearBtn
 const sessionSummaryDetachBtnEl = document.getElementById("sessionSummaryDetachBtn");
 const promptInputEl = document.getElementById("promptInput");
 const promptSuggestionPopupEl = document.getElementById("promptSuggestionPopup");
+const inputAreaEl = document.querySelector(".input-area");
+const inputAreaResizerEl = document.getElementById("inputAreaResizer");
+const dialogEl = document.querySelector(".dialog");
+const dialogHeaderEl = document.querySelector(".dialog-header");
 const modelSelectEl = document.getElementById("modelSelect");
 const importSessionBtnEl = document.getElementById("importSessionBtn");
 const exportAllSessionBtnEl = document.getElementById("exportAllSessionBtn");
@@ -1142,6 +1146,12 @@ let isMessageMultiSelectMode = false;
 let promptSuggestions = [];
 let activePromptSuggestionIndex = -1;
 const selectedMessageKeys = new Set();
+let inputAreaResizePointerId = null;
+let inputAreaResizeStartY = 0;
+let inputAreaResizeStartHeight = 0;
+let inputAreaBaseHeight = 0;
+let inputAreaChromeHeight = 0;
+const minDialogContentHeight = 96;
 
 const MESSAGE_CONTEXT_MENU_ITEMS = [
 	{ action: "copy", label: "Copy", glyph: "⧉" },
@@ -1151,6 +1161,116 @@ const MESSAGE_CONTEXT_MENU_ITEMS = [
 	{ action: "select-multiple", label: "Select Multiple", glyph: "✓" },
 	{ action: "delete", label: "Delete", glyph: "×", danger: true }
 ];
+
+function getInputAreaHeightBounds() {
+	if (!(inputAreaEl instanceof HTMLElement)) {
+		return { min: 0, max: 0 };
+	}
+
+	const minHeight = inputAreaBaseHeight || Math.ceil(inputAreaEl.getBoundingClientRect().height) || 0;
+	if (!(dialogEl instanceof HTMLElement) || !(dialogHeaderEl instanceof HTMLElement)) {
+		return { min: minHeight, max: minHeight };
+	}
+
+	const dialogHeight = Math.ceil(dialogEl.getBoundingClientRect().height);
+	const headerHeight = Math.ceil(dialogHeaderEl.getBoundingClientRect().height);
+	const maxHeight = Math.max(minHeight, dialogHeight - headerHeight - minDialogContentHeight);
+	return { min: minHeight, max: maxHeight };
+}
+
+function applyInputAreaHeight(height) {
+	if (!(inputAreaEl instanceof HTMLElement)) {
+		return;
+	}
+
+	const { min, max } = getInputAreaHeightBounds();
+	const clampedHeight = Math.max(min, Math.min(max, Math.round(Number(height) || 0)));
+	inputAreaEl.style.height = `${clampedHeight}px`;
+
+	if (promptInputEl instanceof HTMLTextAreaElement) {
+		const chrome = inputAreaChromeHeight || 0;
+		const textareaHeight = Math.max(70, clampedHeight - chrome);
+		promptInputEl.style.height = `${textareaHeight}px`;
+		promptInputEl.style.maxHeight = `${textareaHeight}px`;
+	}
+}
+
+function clampInputAreaHeight() {
+	if (!(inputAreaEl instanceof HTMLElement) || !inputAreaEl.style.height) {
+		return;
+	}
+
+	const currentHeight = Math.ceil(inputAreaEl.getBoundingClientRect().height);
+	applyInputAreaHeight(currentHeight);
+}
+
+function endInputAreaResize() {
+	if (!(inputAreaResizerEl instanceof HTMLElement)) {
+		return;
+	}
+
+	if (inputAreaResizePointerId !== null) {
+		inputAreaResizerEl.releasePointerCapture(inputAreaResizePointerId);
+	}
+	inputAreaResizePointerId = null;
+	document.body.classList.remove("is-resizing-input-area");
+}
+
+function onInputAreaResizerPointerDown(event) {
+	if (!(inputAreaEl instanceof HTMLElement) || !(inputAreaResizerEl instanceof HTMLElement)) {
+		return;
+	}
+
+	if (event.button !== 0) {
+		return;
+	}
+
+	const footerHeight = Math.ceil(inputAreaEl.getBoundingClientRect().height);
+	if (!inputAreaBaseHeight) {
+		inputAreaBaseHeight = footerHeight;
+	}
+
+	if (promptInputEl instanceof HTMLTextAreaElement) {
+		const promptHeight = Math.ceil(promptInputEl.getBoundingClientRect().height);
+		inputAreaChromeHeight = Math.max(0, footerHeight - promptHeight);
+	}
+
+	inputAreaResizePointerId = event.pointerId;
+	inputAreaResizeStartY = event.clientY;
+	inputAreaResizeStartHeight = footerHeight;
+	inputAreaResizerEl.setPointerCapture(event.pointerId);
+	document.body.classList.add("is-resizing-input-area");
+	event.preventDefault();
+}
+
+function onInputAreaResizerPointerMove(event) {
+	if (inputAreaResizePointerId === null || event.pointerId !== inputAreaResizePointerId) {
+		return;
+	}
+
+	const deltaY = inputAreaResizeStartY - event.clientY;
+	applyInputAreaHeight(inputAreaResizeStartHeight + deltaY);
+	event.preventDefault();
+}
+
+function initializeInputAreaResize() {
+	if (!(inputAreaEl instanceof HTMLElement) || !(inputAreaResizerEl instanceof HTMLElement)) {
+		return;
+	}
+
+	const footerHeight = Math.ceil(inputAreaEl.getBoundingClientRect().height);
+	inputAreaBaseHeight = footerHeight;
+	if (promptInputEl instanceof HTMLTextAreaElement) {
+		const promptHeight = Math.ceil(promptInputEl.getBoundingClientRect().height);
+		inputAreaChromeHeight = Math.max(0, footerHeight - promptHeight);
+	}
+
+	inputAreaResizerEl.addEventListener("pointerdown", onInputAreaResizerPointerDown);
+	inputAreaResizerEl.addEventListener("pointermove", onInputAreaResizerPointerMove);
+	inputAreaResizerEl.addEventListener("pointerup", endInputAreaResize);
+	inputAreaResizerEl.addEventListener("pointercancel", endInputAreaResize);
+	inputAreaResizerEl.addEventListener("lostpointercapture", endInputAreaResize);
+}
 
 function normalizeMessageState(message) {
 	if (!message || typeof message !== "object") {
@@ -2836,7 +2956,7 @@ function calculatePromptSimilarity(query, candidate) {
 	return score;
 }
 
-const MIN_PROMPT_SIMILARITY_SCORE = 0.22;
+const MIN_PROMPT_SIMILARITY_SCORE = 0.32;
 
 function isWeakPromptMatch(query, candidate) {
 	const queryText = normalizeSimilarityText(query);
@@ -3502,7 +3622,7 @@ function updateInputActionStates() {
 	if (promptInputEl) {
 		promptInputEl.disabled = !hasActiveSession || isLocked || hasInFlightStream || promptPolisherBusy;
 		promptInputEl.placeholder = hasInFlightStream
-			? "Response is streaming. Press Enter or Cancel to stop."
+			? "Response is streaming. Press Cancel to stop."
 			: promptPolisherBusy
 				? "Polishing prompt..."
 			: isLocked
@@ -4759,6 +4879,7 @@ window.addEventListener("resize", () => {
 		appEl.classList.remove("show-dialog");
 	}
 	applySidebarState();
+	clampInputAreaHeight();
 	applyAppSearchFloatingPosition();
 	hideSessionHoverPopup();
 	hideMessageContextMenu();
@@ -4775,6 +4896,7 @@ if (sidebarToggleBtnEl) {
 }
 
 // ====== Bootstrapping ======
+initializeInputAreaResize();
 loadState();
 if (!sessions.length) {
 	createSession("New Session");
