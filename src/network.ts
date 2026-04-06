@@ -180,8 +180,10 @@ async function handleChatRequest(
 	const body = await readJsonBody(request);
 	const sessionId = typeof body.sessionId === 'string' ? body.sessionId : 'unknown-session';
 	const modelId = typeof body.modelId === 'string' ? body.modelId : undefined;
+	const requestType = typeof body.requestType === 'string' ? body.requestType.trim().toLowerCase() : '';
 	const stream = body.stream === true;
-	const summarizeSession = body.summarizeSession === true;
+	const summarizeSession = body.summarizeSession === true || requestType === 'session-summary';
+	const promptPolish = requestType === 'prompt-polish';
 	const summarySource = typeof body.summarySource === 'string' ? body.summarySource.trim() : '';
 	const userMessage = typeof body.message === 'string' ? body.message.trim() : '';
 	if (!userMessage && !(summarizeSession && summarySource)) {
@@ -192,22 +194,37 @@ async function handleChatRequest(
 		return;
 	}
 
+	if (stream && promptPolish) {
+		sendJson(response, 400, {
+			sessionId,
+			error: 'Prompt polish requests do not support stream mode.'
+		});
+		return;
+	}
+
 	if (stream) {
 		await handleChatRequestStream(response, { sessionId, userMessage, modelId });
 		return;
 	}
 
+	const messageForModel = summarizeSession ? (userMessage || summarySource) : userMessage;
+	const requestOptions = summarizeSession
+		? {
+			mode: 'session-summary' as const,
+			summarySource
+		}
+		: promptPolish
+			? {
+				mode: 'prompt-polish' as const
+			}
+			: undefined;
+
 	const result = await generateChatReply(
 		sessionId,
-		userMessage || summarySource,
+		messageForModel,
 		modelId,
 		undefined,
-		summarizeSession
-			? {
-				mode: 'session-summary',
-				summarySource
-			}
-			: undefined
+		requestOptions
 	);
 
 	sendJson(response, 200, {

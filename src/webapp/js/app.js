@@ -1083,6 +1083,7 @@ let summaryNoticeTimeoutId = null;
 let summaryNoticeSessionId = "";
 let dialogHeaderSummarizeBusy = false;
 let dialogHeaderSummarizeBusySessionId = "";
+let promptPolisherBusy = false;
 let isSessionSummaryPageOpen = false;
 let detachedSessionSummaryWindow = null;
 let promptHistorySessionId = null;
@@ -1126,6 +1127,7 @@ const dialogHeaderMenuBtnEl = document.getElementById("dialogHeaderMenuBtn");
 const dialogHeaderMenuEl = document.getElementById("dialogHeaderMenu");
 const copilotShareMenuBtnEl = document.getElementById("copilotShareMenuBtn");
 const copilotShareMenuEl = document.getElementById("copilotShareMenu");
+const promptPolisherBtnEl = document.getElementById("promptPolisherBtn");
 const sendBtnEl = document.getElementById("sendBtn");
 const inputHintMenuEl = document.getElementById("inputHintMenu");
 const mobileBackBtnEl = document.getElementById("mobileBackBtn");
@@ -3022,6 +3024,14 @@ function renderPromptSuggestions(query) {
 	promptSuggestionPopupEl.hidden = false;
 }
 
+function isPromptSuggestionPopupVisible() {
+	return Boolean(
+		promptSuggestionPopupEl
+		&& !promptSuggestionPopupEl.hidden
+		&& promptSuggestions.length
+	);
+}
+
 function navigatePromptHistoryByWheel(direction) {
 	const active = getActiveSession();
 	if (!active) {
@@ -3058,6 +3068,7 @@ function navigatePromptHistoryByWheel(direction) {
 			promptHistoryIndex = -1;
 			promptInputEl.value = promptHistoryDraft;
 			promptInputEl.setSelectionRange(promptInputEl.value.length, promptInputEl.value.length);
+			updateInputActionStates();
 			return true;
 		}
 	}
@@ -3065,6 +3076,7 @@ function navigatePromptHistoryByWheel(direction) {
 	const nextValue = newestFirst[promptHistoryIndex] || promptHistoryDraft;
 	promptInputEl.value = nextValue;
 	promptInputEl.setSelectionRange(promptInputEl.value.length, promptInputEl.value.length);
+	updateInputActionStates();
 	return true;
 }
 
@@ -3479,10 +3491,20 @@ function updateInputActionStates() {
 		sendBtnEl.classList.toggle("is-cancel", hasInFlightStream);
 		sendBtnEl.classList.toggle("is-streaming", hasInFlightStream);
 	}
+	if (promptPolisherBtnEl) {
+		const hasPromptText = Boolean(promptInputEl && promptInputEl.value.trim());
+		const isBusy = promptPolisherBusy;
+		promptPolisherBtnEl.disabled = !hasActiveSession || isLocked || hasInFlightStream || !hasPromptText || isBusy;
+		promptPolisherBtnEl.classList.toggle("is-busy", isBusy);
+		promptPolisherBtnEl.setAttribute("aria-busy", isBusy ? "true" : "false");
+		promptPolisherBtnEl.setAttribute("title", isBusy ? "Polishing Prompt..." : "Polish Prompt");
+	}
 	if (promptInputEl) {
-		promptInputEl.disabled = !hasActiveSession || isLocked;
+		promptInputEl.disabled = !hasActiveSession || isLocked || hasInFlightStream || promptPolisherBusy;
 		promptInputEl.placeholder = hasInFlightStream
 			? "Response is streaming. Press Enter or Cancel to stop."
+			: promptPolisherBusy
+				? "Polishing prompt..."
 			: isLocked
 				? "This session is locked. Unlock it to type."
 			: defaultPromptPlaceholder;
@@ -3682,6 +3704,56 @@ function handlePrimaryActionClick() {
 		return;
 	}
 	sendUserMessage();
+}
+
+async function polishPromptInput() {
+	if (!promptInputEl || isActiveSessionLocked() || isActiveSessionStreamInFlight() || promptPolisherBusy) {
+		return;
+	}
+
+	const active = getActiveSession();
+	if (!active) {
+		return;
+	}
+
+	const promptText = promptInputEl.value.trim();
+	if (!promptText) {
+		return;
+	}
+
+	if (typeof window.polishUserPrompt !== "function") {
+		window.alert("Prompt polisher API is not available.");
+		return;
+	}
+
+	promptPolisherBusy = true;
+	updateInputActionStates();
+
+	try {
+		const modelId = modelSelectEl ? String(modelSelectEl.value || "").trim() : "";
+		const result = await window.polishUserPrompt({
+			sessionId: active.id,
+			prompt: promptText,
+			modelId
+		});
+
+		const polishedPrompt = String(result?.polishedPrompt || "").trim();
+		if (!polishedPrompt) {
+			window.alert("Prompt polisher returned an empty prompt.");
+			return;
+		}
+
+		promptInputEl.value = polishedPrompt;
+		promptInputEl.setSelectionRange(promptInputEl.value.length, promptInputEl.value.length);
+		renderPromptSuggestions(promptInputEl.value);
+		promptInputEl.focus();
+	} catch (error) {
+		const message = error instanceof Error ? error.message : String(error);
+		window.alert(`Prompt polish failed: ${message}`);
+	} finally {
+		promptPolisherBusy = false;
+		updateInputActionStates();
+	}
 }
 
 async function resetActiveSessionContext() {
@@ -4271,6 +4343,12 @@ document.addEventListener("click", async (event) => {
 
 sendBtnEl.addEventListener("click", handlePrimaryActionClick);
 
+if (promptPolisherBtnEl) {
+	promptPolisherBtnEl.addEventListener("click", () => {
+		void polishPromptInput();
+	});
+}
+
 if (dialogHeaderCopyBtnEl) {
 	dialogHeaderCopyBtnEl.addEventListener("click", async () => {
 		if (dialogHeaderCopyBtnEl.disabled) {
@@ -4575,7 +4653,9 @@ promptInputEl.addEventListener("keydown", (event) => {
 	if (event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey) {
 		if (event.key === "ArrowUp" || event.key === "ArrowDown") {
 			const direction = event.key === "ArrowUp" ? -1 : 1;
-			const handled = navigatePromptHistoryByWheel(direction);
+			const handled = isPromptSuggestionPopupVisible()
+				? moveActivePromptSuggestion(direction)
+				: navigatePromptHistoryByWheel(direction);
 			if (handled) {
 				event.preventDefault();
 				return;
@@ -4584,15 +4664,6 @@ promptInputEl.addEventListener("keydown", (event) => {
 	}
 
 	if (!event.altKey && !event.ctrlKey && !event.metaKey) {
-		if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-			const direction = event.key === "ArrowDown" ? 1 : -1;
-			const handled = moveActivePromptSuggestion(direction);
-			if (handled) {
-				event.preventDefault();
-				return;
-			}
-		}
-
 		if (event.key === "Escape" && promptSuggestions.length) {
 			hidePromptSuggestionPopup();
 			event.preventDefault();
@@ -4620,6 +4691,7 @@ promptInputEl.addEventListener("input", () => {
 	}
 	renderPromptSuggestions(promptInputEl.value);
 	updateInputActionStates();
+			updateInputActionStates();
 });
 
 promptInputEl.addEventListener("wheel", (event) => {
@@ -4627,12 +4699,15 @@ promptInputEl.addEventListener("wheel", (event) => {
 		return;
 	}
 
+	updateInputActionStates();
 	const direction = event.deltaY < 0 ? -1 : event.deltaY > 0 ? 1 : 0;
 	if (!direction) {
 		return;
 	}
 
-	const handled = navigatePromptHistoryByWheel(direction);
+	const handled = isPromptSuggestionPopupVisible()
+		? moveActivePromptSuggestion(direction)
+		: navigatePromptHistoryByWheel(direction);
 	if (handled) {
 		event.preventDefault();
 	}

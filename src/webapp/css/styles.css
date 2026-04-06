@@ -1663,6 +1663,7 @@ body {
 .dialog-header-export-btn:disabled,
 .app-search-btn:disabled,
 .copilot-share-menu-trigger:disabled,
+.prompt-polisher-btn:disabled,
 .send-btn:disabled,
 .model-picker-trigger:disabled,
 .prompt-input:disabled {
@@ -1674,6 +1675,7 @@ body {
 .dialog-header-export-btn:disabled:hover,
 .app-search-btn:disabled:hover,
 .copilot-share-menu-trigger:disabled:hover,
+.prompt-polisher-btn:disabled:hover,
 .send-btn:disabled:hover,
 .model-picker-trigger:disabled:hover,
 .action-btn:disabled:hover {
@@ -2430,6 +2432,63 @@ body {
 	border-radius: 8px;
 	font-size: 12px;
 	line-height: 1.2;
+}
+
+.prompt-polisher-btn {
+	width: 32px;
+	height: 32px;
+	padding: 0;
+	border: 1px solid var(--line);
+	border-radius: 8px;
+	background: #ffffff;
+	color: #475569;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	cursor: pointer;
+	transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.prompt-polisher-btn:hover {
+	background: #f3f5f9;
+	border-color: #c2c8d0;
+}
+
+.prompt-polisher-btn:focus-visible {
+	outline: none;
+	border-color: #9ed7b8;
+	box-shadow: 0 0 0 3px rgba(7, 193, 96, 0.16);
+}
+
+.prompt-polisher-icon {
+	width: 16px;
+	height: 16px;
+	display: inline-block;
+	background-image: url("../icons/edit-sparkle.svg");
+	background-repeat: no-repeat;
+	background-position: center;
+	background-size: 16px 16px;
+}
+
+.prompt-polisher-btn:disabled {
+	background: #d8dde3;
+	color: #7f8a96;
+	border-color: #c9d1d9;
+	opacity: 1;
+}
+
+.prompt-polisher-btn:disabled .prompt-polisher-icon {
+	opacity: 0.55;
+}
+
+.prompt-polisher-btn.is-busy {
+	background: #e8f9ef;
+	border-color: #9ed7b8;
+	cursor: progress;
+}
+
+.prompt-polisher-btn.is-busy .prompt-polisher-icon {
+	animation: send-btn-spin 0.75s linear infinite;
 }
 
 .send-btn.is-cancel {

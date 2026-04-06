@@ -36,6 +36,17 @@ const SESSION_SUMMARY_PROMPT_LINES = [
 	'### Topic 2',
 	'### Topic 3',
 ];
+const PROMPT_POLISH_PROMPT_LINES = [
+	'Your job is not to answer the user\'s draft prompt but to rewrite the user\'s draft prompt so it is clearer, more actionable, and better scoped for an LLM.',
+	'',
+	'Requirements:',
+	'1. Preserve the original goal and constraints; do not invent requirements.',
+	'2. Remove ambiguity and filler while keeping technical details that matter.',
+	'3. Add concise structure using short sections only when it improves clarity.',
+	'4. Keep the result practical and ready to paste directly as the next user prompt.',
+	'5. Return only the polished prompt text. Do not add explanations, markdown fences, or commentary.',
+	''
+];
 const FILTERED_MODEL_IDS = new Set([
 	// Model: "GPT-4o mini". Filtered out due to lower token limits and inconsistent visibility in VS Code Copilot.
 	'copilot-fast', 
@@ -61,7 +72,7 @@ type ConversationTurn = {
 	content: string;
 };
 
-type ChatRequestMode = 'chat' | 'session-summary';
+type ChatRequestMode = 'chat' | 'session-summary' | 'prompt-polish';
 
 type GenerateChatReplyOptions = {
 	mode?: ChatRequestMode;
@@ -163,8 +174,12 @@ function buildMessagesForSession(
 	modelMaxInputTokens: number,
 	options?: GenerateChatReplyOptions
 ): vscode.LanguageModelChatMessage[] {
-	if ((options?.mode ?? 'chat') === 'session-summary') {
+	const mode = options?.mode ?? 'chat';
+	if (mode === 'session-summary') {
 		return buildSessionSummaryMessages(userMessage, options?.summarySource);
+	}
+	if (mode === 'prompt-polish') {
+		return buildPromptPolishMessages(userMessage);
 	}
 
 	const history = sessionHistory.get(sessionId) ?? [];
@@ -197,6 +212,20 @@ function buildSessionSummaryMessages(userMessage: string, summarySource?: string
 
 	return [
 		vscode.LanguageModelChatMessage.User(SYSTEM_PROMPT, 'system'),
+		vscode.LanguageModelChatMessage.User(prompt)
+	];
+}
+
+function buildPromptPolishMessages(userMessage: string): vscode.LanguageModelChatMessage[] {
+	const rawPrompt = String(userMessage || '').trim();
+	const prompt = [
+		...PROMPT_POLISH_PROMPT_LINES,
+		'User draft prompt:', 
+		rawPrompt
+	].join('\n');
+
+	return [
+		// vscode.LanguageModelChatMessage.User(SYSTEM_PROMPT, 'system'),
 		vscode.LanguageModelChatMessage.User(prompt)
 	];
 }

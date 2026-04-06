@@ -650,3 +650,45 @@ window.summarizeSessionMessages = async ({ sessionId, summarySource, modelId } =
 		timestamp: data?.timestamp
 	};
 };
+
+window.polishUserPrompt = async ({ sessionId, prompt, modelId } = {}) => {
+	const normalizedSessionId = String(sessionId || "").trim();
+	const normalizedPrompt = String(prompt || "").trim();
+	const normalizedModelId = typeof modelId === "string" && modelId.trim() ? modelId.trim() : undefined;
+
+	if (!normalizedSessionId) {
+		throw new Error("sessionId is required.");
+	}
+
+	if (!normalizedPrompt) {
+		throw new Error("prompt is required.");
+	}
+
+	const response = await fetch('/api/chat', {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({
+			sessionId: normalizedSessionId,
+			message: normalizedPrompt,
+			modelId: normalizedModelId,
+			requestType: 'prompt-polish',
+			stream: false
+		})
+	});
+
+	if (!response.ok) {
+		throw new Error(`HTTP ${response.status}`);
+	}
+
+	const data = await response.json();
+	const polishedPrompt = typeof data?.reply === "string" ? data.reply.trim() : "";
+	if (!polishedPrompt) {
+		throw new Error("Prompt polish response is empty.");
+	}
+
+	return {
+		polishedPrompt,
+		model: data?.model || null,
+		timestamp: data?.timestamp
+	};
+};
