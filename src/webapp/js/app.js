@@ -1079,6 +1079,7 @@ let typingSessionId = null;
 let typingTimeoutId = null;
 let dialogHeaderCopyFeedbackTimeoutId = null;
 let sessionSummaryCopyFeedbackTimeoutId = null;
+let originalPromptCopyFeedbackTimeoutId = null;
 let summaryNoticeTimeoutId = null;
 let summaryNoticeSessionId = "";
 let dialogHeaderSummarizeBusy = false;
@@ -1132,6 +1133,7 @@ const dialogHeaderMenuEl = document.getElementById("dialogHeaderMenu");
 const copilotShareMenuBtnEl = document.getElementById("copilotShareMenuBtn");
 const copilotShareMenuEl = document.getElementById("copilotShareMenu");
 const promptPolisherBtnEl = document.getElementById("promptPolisherBtn");
+const originalPromptBtnEl = document.getElementById("originalPromptBtn");
 const sendBtnEl = document.getElementById("sendBtn");
 const inputHintMenuEl = document.getElementById("inputHintMenu");
 const mobileBackBtnEl = document.getElementById("mobileBackBtn");
@@ -1620,6 +1622,25 @@ function showSessionSummaryCopyFeedback() {
 	sessionSummaryCopyFeedbackTimeoutId = window.setTimeout(() => {
 		sessionSummaryCopyBtnEl?.classList.remove("is-copied");
 		sessionSummaryCopyFeedbackTimeoutId = null;
+	}, 1200);
+}
+
+function showOriginalPromptCopyFeedback() {
+	if (!originalPromptBtnEl) {
+		return;
+	}
+
+	originalPromptBtnEl.classList.remove("is-copied");
+	void originalPromptBtnEl.offsetWidth;
+	originalPromptBtnEl.classList.add("is-copied");
+
+	if (originalPromptCopyFeedbackTimeoutId) {
+		window.clearTimeout(originalPromptCopyFeedbackTimeoutId);
+	}
+
+	originalPromptCopyFeedbackTimeoutId = window.setTimeout(() => {
+		originalPromptBtnEl?.classList.remove("is-copied");
+		originalPromptCopyFeedbackTimeoutId = null;
 	}, 1200);
 }
 
@@ -2657,7 +2678,16 @@ function escapeHtml(value) {
 
 function saveState() {
 	// Persist sessions + messages on each change.
-	localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions));
+	const sessionsToPersist = sessions.map((session) => {
+		if (!session || typeof session !== "object") {
+			return session;
+		}
+
+		const { lastOriginalPrompt, hasCompletedPromptPolish, ...persistedSession } = session;
+		return persistedSession;
+	});
+
+	localStorage.setItem(STORAGE_KEY, JSON.stringify(sessionsToPersist));
 	localStorage.setItem(CUSTOM_ORDER_KEY, hasCustomSessionOrder ? "1" : "0");
 	if (activeSessionId) {
 		localStorage.setItem(ACTIVE_KEY, activeSessionId);
@@ -2688,6 +2718,14 @@ function normalizeSessionState(session) {
 	if (typeof session.summaryMarkdown !== "string") {
 		session.summaryMarkdown = "";
 	}
+
+	if (typeof session.lastOriginalPrompt !== "string") {
+		session.lastOriginalPrompt = "";
+	}
+
+	if (typeof session.hasCompletedPromptPolish !== "boolean") {
+		session.hasCompletedPromptPolish = false;
+	}
 }
 
 function isSessionLocked(sessionId) {
@@ -2716,6 +2754,13 @@ function loadState() {
 	} else {
 		sessions = structuredClone(DEFAULT_SESSIONS);
 	}
+
+	sessions.forEach((session) => {
+		if (session && typeof session === "object") {
+			session.lastOriginalPrompt = "";
+			session.hasCompletedPromptPolish = false;
+		}
+	});
 
 	sessions.forEach((session) => {
 		normalizeSessionState(session);
@@ -3619,6 +3664,14 @@ function updateInputActionStates() {
 		promptPolisherBtnEl.setAttribute("aria-busy", isBusy ? "true" : "false");
 		promptPolisherBtnEl.setAttribute("title", isBusy ? "Polishing Prompt..." : "Polish Prompt");
 	}
+	if (originalPromptBtnEl) {
+		const active = getActiveSession();
+		const hasPromptText = Boolean(promptInputEl && promptInputEl.value.trim());
+		const hasStoredOriginalPrompt = Boolean(typeof active?.lastOriginalPrompt === "string" && active.lastOriginalPrompt.trim());
+		const hasCompletedPromptPolish = Boolean(active?.hasCompletedPromptPolish);
+		originalPromptBtnEl.disabled = !hasActiveSession || isLocked || hasInFlightStream || promptPolisherBusy || !hasPromptText || !hasStoredOriginalPrompt || !hasCompletedPromptPolish;
+		originalPromptBtnEl.setAttribute("title", hasCompletedPromptPolish && hasStoredOriginalPrompt ? "Copy Raw Prompt" : "Available after prompt polish finishes");
+	}
 	if (promptInputEl) {
 		promptInputEl.disabled = !hasActiveSession || isLocked || hasInFlightStream || promptPolisherBusy;
 		promptInputEl.placeholder = hasInFlightStream
@@ -3863,6 +3916,9 @@ async function polishPromptInput() {
 			return;
 		}
 
+		active.lastOriginalPrompt = promptText;
+		active.hasCompletedPromptPolish = true;
+
 		promptInputEl.value = polishedPrompt;
 		promptInputEl.setSelectionRange(promptInputEl.value.length, promptInputEl.value.length);
 		renderPromptSuggestions(promptInputEl.value);
@@ -3873,6 +3929,33 @@ async function polishPromptInput() {
 	} finally {
 		promptPolisherBusy = false;
 		updateInputActionStates();
+	}
+}
+
+async function copyOriginalPromptToClipboard() {
+	if (!promptInputEl || isActiveSessionLocked() || isActiveSessionStreamInFlight() || promptPolisherBusy) {
+		return;
+	}
+
+	const active = getActiveSession();
+	if (!active) {
+		return;
+	}
+	if (!active.hasCompletedPromptPolish) {
+		return;
+	}
+
+	const originalPrompt = typeof active.lastOriginalPrompt === "string" ? active.lastOriginalPrompt : "";
+	if (!originalPrompt.trim()) {
+		return;
+	}
+
+	try {
+		await copyTextToClipboard(originalPrompt);
+		showOriginalPromptCopyFeedback();
+	} catch (error) {
+		const message = error instanceof Error ? error.message : String(error);
+		window.alert(`Copy raw prompt failed: ${message}`);
 	}
 }
 
@@ -4466,6 +4549,12 @@ sendBtnEl.addEventListener("click", handlePrimaryActionClick);
 if (promptPolisherBtnEl) {
 	promptPolisherBtnEl.addEventListener("click", () => {
 		void polishPromptInput();
+	});
+}
+
+if (originalPromptBtnEl) {
+	originalPromptBtnEl.addEventListener("click", () => {
+		void copyOriginalPromptToClipboard();
 	});
 }
 

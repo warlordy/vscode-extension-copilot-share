@@ -1664,6 +1664,7 @@ body {
 .app-search-btn:disabled,
 .copilot-share-menu-trigger:disabled,
 .prompt-polisher-btn:disabled,
+.original-prompt-btn:disabled,
 .send-btn:disabled,
 .model-picker-trigger:disabled,
 .prompt-input:disabled {
@@ -1676,6 +1677,7 @@ body {
 .app-search-btn:disabled:hover,
 .copilot-share-menu-trigger:disabled:hover,
 .prompt-polisher-btn:disabled:hover,
+.original-prompt-btn:disabled:hover,
 .send-btn:disabled:hover,
 .model-picker-trigger:disabled:hover,
 .action-btn:disabled:hover {
@@ -2522,12 +2524,38 @@ body.is-resizing-input-area * {
 	transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 
+.original-prompt-btn {
+	width: 32px;
+	height: 32px;
+	padding: 0;
+	border: 1px solid var(--line);
+	border-radius: 8px;
+	background: #ffffff;
+	color: #475569;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	cursor: pointer;
+	transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
 .prompt-polisher-btn:hover {
 	background: #f3f5f9;
 	border-color: #c2c8d0;
 }
 
+.original-prompt-btn:hover {
+	background: #f3f5f9;
+	border-color: #c2c8d0;
+}
+
 .prompt-polisher-btn:focus-visible {
+	outline: none;
+	border-color: #9ed7b8;
+	box-shadow: 0 0 0 3px rgba(7, 193, 96, 0.16);
+}
+
+.original-prompt-btn:focus-visible {
 	outline: none;
 	border-color: #9ed7b8;
 	box-shadow: 0 0 0 3px rgba(7, 193, 96, 0.16);
@@ -2543,7 +2571,24 @@ body.is-resizing-input-area * {
 	background-size: 16px 16px;
 }
 
+.original-prompt-icon {
+	width: 16px;
+	height: 16px;
+	display: inline-block;
+	background-image: url("../icons/quote.svg");
+	background-repeat: no-repeat;
+	background-position: center;
+	background-size: 16px 16px;
+}
+
 .prompt-polisher-btn:disabled {
+	background: #d8dde3;
+	color: #7f8a96;
+	border-color: #c9d1d9;
+	opacity: 1;
+}
+
+.original-prompt-btn:disabled {
 	background: #d8dde3;
 	color: #7f8a96;
 	border-color: #c9d1d9;
@@ -2552,6 +2597,19 @@ body.is-resizing-input-area * {
 
 .prompt-polisher-btn:disabled .prompt-polisher-icon {
 	opacity: 0.55;
+}
+
+.original-prompt-btn:disabled .original-prompt-icon {
+	opacity: 0.55;
+}
+
+.original-prompt-btn.is-copied {
+	background: #e8f9ef;
+	border-color: #9ed7b8;
+}
+
+.original-prompt-btn.is-copied .original-prompt-icon {
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Cpath fill='%2308a045' d='M6.62 11.2 3.82 8.4a1 1 0 1 0-1.42 1.4l3.52 3.53a1 1 0 0 0 1.42 0l6.26-6.25a1 1 0 0 0-1.42-1.42L6.62 11.2Z'/%3E%3C/svg%3E");
 }
 
 .prompt-polisher-btn.is-busy {
