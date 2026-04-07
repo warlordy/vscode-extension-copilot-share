@@ -1168,6 +1168,7 @@ const MESSAGE_CONTEXT_MENU_ITEMS = [
 	{ action: "share", label: "Share", glyph: "⤴" },
 	{ action: "favorites", label: "Favorites", glyph: "☆" },
 	{ action: "select-multiple", label: "Select Multiple", glyph: "✓" },
+	{ action: "retry", label: "Retry", glyph: "↻", role: "user" },
 	{ action: "delete", label: "Delete", glyph: "×", danger: true }
 ];
 
@@ -1295,7 +1296,7 @@ function getMessageContextMenuItemConfig(action) {
 	return MESSAGE_CONTEXT_MENU_ITEMS.find((item) => item.action === action) || null;
 }
 
-function setMessageContextMenuItemPresentation(action, { label, glyph, disabled = false } = {}) {
+function setMessageContextMenuItemPresentation(action, { label, glyph, disabled = false, hidden = false } = {}) {
 	if (!messageContextMenuEl) {
 		return;
 	}
@@ -1314,7 +1315,10 @@ function setMessageContextMenuItemPresentation(action, { label, glyph, disabled 
 	if (labelEl) {
 		labelEl.textContent = label || config?.label || "";
 	}
-	itemEl.disabled = Boolean(disabled);
+	itemEl.hidden = Boolean(hidden);
+	itemEl.style.display = itemEl.hidden ? "none" : "";
+	itemEl.setAttribute("aria-hidden", itemEl.hidden ? "true" : "false");
+	itemEl.disabled = itemEl.hidden ? true : Boolean(disabled);
 	itemEl.setAttribute("aria-disabled", itemEl.disabled ? "true" : "false");
 }
 
@@ -1492,6 +1496,8 @@ function updateMessageContextMenuState(sessionId, messageId) {
 	const countSuffix = isBatch ? ` (${count})` : "";
 	const allFavorited = count > 0 && records.every((message) => message.isFavorite === true);
 	const isLocked = isSessionLocked(sessionId);
+	const focusedRole = messageContextMenuEl ? String(messageContextMenuEl.dataset.role || "").trim() : "";
+	const showRetryAction = !isBatch && focusedRole === "user";
 
 	setMessageContextMenuItemPresentation("copy", {
 		label: isBatch ? `Copy Selected${countSuffix}` : "Copy",
@@ -1510,6 +1516,11 @@ function updateMessageContextMenuState(sessionId, messageId) {
 	});
 	setMessageContextMenuItemPresentation("select-multiple", {
 		label: isMessageMultiSelectMode ? "Cancel Selecting" : "Select Multiple"
+	});
+	setMessageContextMenuItemPresentation("retry", {
+		label: "Retry",
+		disabled: isLocked || count < 1,
+		hidden: !showRetryAction
 	});
 	setMessageContextMenuItemPresentation("delete", {
 		label: isBatch ? `Delete Selected${countSuffix}` : "Delete",
@@ -4601,6 +4612,16 @@ document.addEventListener("click", async (event) => {
 
 	if (action === "favorites") {
 		toggleFavoriteForMessageRecords(sessionId, records);
+	}
+
+	if (action === "retry") {
+		const sourceMessage = records[0];
+		if (sourceMessage && sourceMessage.role === "user" && promptInputEl instanceof HTMLTextAreaElement) {
+			promptInputEl.value = String(sourceMessage.text || "");
+			promptInputEl.focus();
+			promptInputEl.setSelectionRange(promptInputEl.value.length, promptInputEl.value.length);
+			updateInputActionStates();
+		}
 	}
 
 	if (action === "delete") {
