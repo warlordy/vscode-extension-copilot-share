@@ -1147,19 +1147,30 @@ const mobileBackBtnEl = document.getElementById("mobileBackBtn");
 const sidebarToggleBtnEl = document.getElementById("sidebarToggleBtn");
 const sidebarEl = document.querySelector(".sidebar");
 const defaultPromptPlaceholder = promptInputEl?.getAttribute("placeholder") || "Type your request to Copilot...";
-const userAgent = navigator.userAgent || "";
-const platform = navigator.platform || "";
-const maxTouchPoints = Number(navigator.maxTouchPoints || 0);
-const isAndroidDevice = /Android/i.test(userAgent);
-const isIPhoneDevice = /iPhone/i.test(userAgent);
-const isIOSDevice = /iPad|iPod|iPhone/i.test(userAgent) || (platform === "MacIntel" && maxTouchPoints > 1);
-const isMobileUAData = Boolean(navigator.userAgentData && navigator.userAgentData.mobile);
-const isSmallCoarsePointer = Boolean(window.matchMedia && window.matchMedia("(max-width: 900px) and (pointer: coarse)").matches);
-const shouldHideInputHintMenu = isAndroidDevice || isIPhoneDevice || isMobileUAData || (isIOSDevice && isSmallCoarsePointer);
 
-if (inputHintMenuEl && shouldHideInputHintMenu) {
-	inputHintMenuEl.open = false;
-	inputHintMenuEl.hidden = true;
+function checkMobileDevice() {
+	const userAgent = navigator.userAgent || "";
+	const platform = navigator.platform || "";
+	const maxTouchPoints = Number(navigator.maxTouchPoints || 0);
+	const isAndroidDevice = /Android/i.test(userAgent);
+	const isIPhoneDevice = /iPhone/i.test(userAgent);
+	const isIOSDevice = /iPad|iPod|iPhone/i.test(userAgent) || (platform === "MacIntel" && maxTouchPoints > 1);
+	const isMobileUAData = Boolean(navigator.userAgentData && navigator.userAgentData.mobile);
+	const isSmallCoarsePointer = Boolean(window.matchMedia && window.matchMedia("(max-width: 900px) and (pointer: coarse)").matches);
+	return isAndroidDevice || isIPhoneDevice || isMobileUAData || (isIOSDevice && isSmallCoarsePointer);
+}
+
+const isMobileDevice = checkMobileDevice();
+if (isMobileDevice) {
+	if (sidebarToggleBtnEl) {
+		sidebarToggleBtnEl.hidden = true;
+		sidebarToggleBtnEl.setAttribute("hidden", "");
+		sidebarToggleBtnEl.style.setProperty("display", "none", "important");
+	}
+	if (inputHintMenuEl) {
+		inputHintMenuEl.open = false;
+		inputHintMenuEl.hidden = true;
+	}
 }
 
 let sessionHoverPopupEl = null;
