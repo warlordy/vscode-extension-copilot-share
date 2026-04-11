@@ -82,13 +82,14 @@
 			</div>
 			<div class="sidebar-search-bar" id="appSearchBar" hidden>
 				<button class="sidebar-search-drag-handle" id="appSearchDragHandle" type="button" aria-label="Drag Search Bar" title="Drag Search Bar"></button>
-				<input class="sidebar-search-input" id="appSearchInput" type="text" placeholder="Search sessions" autocomplete="off" />
+				<input class="sidebar-search-input" id="appSearchInput" type="text" placeholder="Search All Sessions" autocomplete="off" />
 				<button class="dialog-header-search-option" id="appSearchCaseBtn" type="button" aria-pressed="false" title="Match Case">Aa</button>
 				<button class="dialog-header-search-option" id="appSearchWholeWordBtn" type="button" aria-pressed="false" title="Match Whole Word"><span class="search-ab-underline">ab</span></button>
 				<button class="dialog-header-search-option" id="appSearchRegexBtn" type="button" aria-pressed="false" title="Use Regular Expression">.*</button>
 				<button class="dialog-header-search-nav" id="appSearchPrevBtn" type="button" title="Previous Match" aria-label="Previous Match">&lt;</button>
 				<span class="dialog-header-search-info" id="appSearchMatchInfo">0/0</span>
 				<button class="dialog-header-search-nav" id="appSearchNextBtn" type="button" title="Next Match" aria-label="Next Match">&gt;</button>
+				<button class="dialog-header-search-option app-search-scope-btn" id="appSearchScopeBtn" type="button" title="Search Range: All Sessions" aria-label="Search Range: All Sessions" aria-pressed="false">All</button>
 				<button class="dialog-header-search-exit" id="closeAppSearchBtn" type="button" aria-label="Exit Search" title="Exit Search">&times;</button>
 			</div>
 			<ul class="session-list" id="sessionList"></ul>
@@ -130,16 +131,6 @@
 					<button class="dialog-header-search-btn" id="dialogHeaderSearchBtn" type="button" aria-label="Search Current Session" title="Search Current Session">
 						<span class="dialog-header-search-icon" aria-hidden="true"></span>
 					</button>
-					<div class="dialog-header-search-bar" id="messageSearchBar" hidden>
-						<input class="dialog-header-search-input" id="messageSearchInput" type="text" placeholder="Search messages" autocomplete="off" />
-						<button class="dialog-header-search-option" id="messageSearchCaseBtn" type="button" aria-pressed="false" title="Match Case">Aa</button>
-						<button class="dialog-header-search-option" id="messageSearchWholeWordBtn" type="button" aria-pressed="false" title="Match Whole Word"><span class="search-ab-underline">ab</span></button>
-						<button class="dialog-header-search-option" id="messageSearchRegexBtn" type="button" aria-pressed="false" title="Use Regular Expression">.*</button>
-						<button class="dialog-header-search-nav" id="messageSearchPrevBtn" type="button" title="Previous Match" aria-label="Previous Match">&lt;</button>
-						<span class="dialog-header-search-info" id="messageSearchMatchInfo">0/0</span>
-						<button class="dialog-header-search-nav" id="messageSearchNextBtn" type="button" title="Next Match" aria-label="Next Match">&gt;</button>
-						<button class="dialog-header-search-exit" id="closeMessageSearchBtn" type="button" aria-label="Exit Search" title="Exit Search">&times;</button>
-					</div>
 					<button class="dialog-header-share-btn" id="dialogHeaderShareBtn" type="button" aria-label="Share Messages" title="Share Messages">
 						<span class="dialog-header-share-icon" aria-hidden="true"></span>
 					</button>

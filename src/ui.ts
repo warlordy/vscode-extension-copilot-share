@@ -16,9 +16,9 @@ type StatusCodiconOptionKey = keyof typeof STATUS_CODICON_OPTIONS;
 
 const STATUS_CODICON_SETTING_KEY = 'statusCodiconOption';
 
-let selectedStatusCodiconKey: StatusCodiconOptionKey = 'eye';
+let selectedStatusCodiconKey: StatusCodiconOptionKey = 'vm';
 
-type MenuAction = 'start' | 'stop' | 'open' | 'copyLocal' | 'copyLan' | 'setIcons';
+type MenuAction = 'start' | 'stop' | 'open' | 'copyLocal' | 'copyPublic' | 'setIcons';
 
 type ControlMenuItem = vscode.QuickPickItem & {
 	action?: MenuAction;
@@ -122,7 +122,7 @@ async function openControlMenu(
 			{ label: 'Links', kind: vscode.QuickPickItemKind.Separator },
 			{ label: '$(globe) Open Web', action: 'open' },
 			{ label: '$(copy) Copy Local URL', action: 'copyLocal' },
-			{ label: '$(copy) Copy LAN URL', action: 'copyLan' },
+			{ label: '$(copy) Copy Public URL', action: 'copyPublic' },
 			{ label: 'Custom', kind: vscode.QuickPickItemKind.Separator },
 			{ label: '$(paintcan) Set Status Icons', action: 'setIcons' }
 		];
@@ -181,7 +181,7 @@ async function openControlMenu(
 				void vscode.window.showInformationMessage(`Copied: ${latestState.localUrl}`);
 				break;
 			}
-			case 'copyLan': {
+			case 'copyPublic': {
 				const latestState = dependencies.getServerRuntimeState();
 				if (latestState.networkUrls.length === 0) {
 					void vscode.window.showWarningMessage('LAN IPv4 URL is unavailable to copy.');

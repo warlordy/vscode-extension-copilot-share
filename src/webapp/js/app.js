@@ -132,21 +132,13 @@ function highlightMessageMatches(query, { caseSensitive = false, useRegex = fals
 	return highlights;
 }
 
-const messageSearchBarEl = document.getElementById("messageSearchBar");
-const messageSearchInputEl = document.getElementById("messageSearchInput");
-const messageSearchPrevBtnEl = document.getElementById("messageSearchPrevBtn");
-const messageSearchNextBtnEl = document.getElementById("messageSearchNextBtn");
-const messageSearchMatchInfoEl = document.getElementById("messageSearchMatchInfo");
-const closeMessageSearchBtnEl = document.getElementById("closeMessageSearchBtn");
 const dialogHeaderSearchBtnEl = document.getElementById("dialogHeaderSearchBtn");
-const messageSearchCaseBtnEl = document.getElementById("messageSearchCaseBtn");
-const messageSearchRegexBtnEl = document.getElementById("messageSearchRegexBtn");
-const messageSearchWholeWordBtnEl = document.getElementById("messageSearchWholeWordBtn");
 const appSearchBtnEl = document.getElementById("appSearchBtn");
 const appSearchBarEl = document.getElementById("appSearchBar");
 const appSearchInputEl = document.getElementById("appSearchInput");
 const appSearchPrevBtnEl = document.getElementById("appSearchPrevBtn");
 const appSearchNextBtnEl = document.getElementById("appSearchNextBtn");
+const appSearchScopeBtnEl = document.getElementById("appSearchScopeBtn");
 const appSearchMatchInfoEl = document.getElementById("appSearchMatchInfo");
 const closeAppSearchBtnEl = document.getElementById("closeAppSearchBtn");
 const appSearchDragHandleEl = document.getElementById("appSearchDragHandle");
@@ -166,6 +158,10 @@ let lastSearchWholeWord = false;
 let appSearchMatchedSessionIds = [];
 const appSearchMatchedSessionIdSet = new Set();
 let appSearchCurrentMatchIdx = -1;
+const APP_SEARCH_SCOPE_ALL = "all";
+const APP_SEARCH_SCOPE_CURRENT = "current";
+let appSearchScope = APP_SEARCH_SCOPE_ALL;
+let appSearchScopeLocked = false;
 let lastAppSearchQuery = "";
 let isAppSearchCaseSensitive = false;
 let isAppSearchRegex = false;
@@ -186,73 +182,63 @@ const appSearchFloatingEdgePadding = {
 	right: 8,
 	bottom: 8
 };
+const defaultAppSearchPlaceholder = appSearchInputEl?.getAttribute("placeholder") || "Search All Sessions";
+const currentSessionAppSearchPlaceholder = "Search Current Session";
 
-function updateSearchOptionButtons() {
-	if (messageSearchCaseBtnEl) {
-		messageSearchCaseBtnEl.setAttribute("aria-pressed", isSearchCaseSensitive ? "true" : "false");
-		// messageSearchCaseBtnEl.title = isSearchCaseSensitive ? "Case-sensitive On" : "Case-sensitive Off";
-	}
-
-	if (messageSearchRegexBtnEl) {
-		messageSearchRegexBtnEl.setAttribute("aria-pressed", isSearchRegex ? "true" : "false");
-		// messageSearchRegexBtnEl.title = isSearchRegex ? "Regex On" : "Regex Off";
-	}
-
-	if (messageSearchWholeWordBtnEl) {
-		messageSearchWholeWordBtnEl.setAttribute("aria-pressed", isSearchWholeWord ? "true" : "false");
-		// messageSearchWholeWordBtnEl.title = isSearchWholeWord ? "Whole-word On" : "Whole-word Off";
-	}
-}
-
-function toggleSearchCaseSensitive() {
-	isSearchCaseSensitive = !isSearchCaseSensitive;
-	updateSearchOptionButtons();
-	refreshMessageSearch({ scrollToActive: true, resetIndex: true });
-	if (messageSearchInputEl) {
-		messageSearchInputEl.focus();
-	}
-}
-
-function toggleSearchRegex() {
-	isSearchRegex = !isSearchRegex;
-	updateSearchOptionButtons();
-	refreshMessageSearch({ scrollToActive: true, resetIndex: true });
-	if (messageSearchInputEl) {
-		messageSearchInputEl.focus();
-	}
-}
-
-function toggleSearchWholeWord() {
-	isSearchWholeWord = !isSearchWholeWord;
-	updateSearchOptionButtons();
-	refreshMessageSearch({ scrollToActive: true, resetIndex: true });
-	if (messageSearchInputEl) {
-		messageSearchInputEl.focus();
-	}
-}
-
-function updateSearchNavigationState() {
-	const hasMatches = searchMatches.length > 0;
-	if (messageSearchPrevBtnEl) {
-		messageSearchPrevBtnEl.disabled = !hasMatches;
-	}
-	if (messageSearchNextBtnEl) {
-		messageSearchNextBtnEl.disabled = !hasMatches;
-	}
-}
-
-
-function updateSearchMatchInfo() {
-	if (!messageSearchMatchInfoEl) {
+function setAppSearchScope(scope) {
+	appSearchScope = scope === APP_SEARCH_SCOPE_CURRENT ? APP_SEARCH_SCOPE_CURRENT : APP_SEARCH_SCOPE_ALL;
+	if (!appSearchInputEl) {
 		return;
 	}
 
-	if (!searchMatches.length || currentMatchIdx < 0) {
-		messageSearchMatchInfoEl.textContent = "0/0";
+	appSearchInputEl.placeholder = appSearchScope === APP_SEARCH_SCOPE_CURRENT
+		? currentSessionAppSearchPlaceholder
+		: defaultAppSearchPlaceholder;
+}
+
+function isCurrentSessionAppSearchScope() {
+	return appSearchScope === APP_SEARCH_SCOPE_CURRENT;
+}
+
+function updateAppSearchScopeButton() {
+	if (!appSearchScopeBtnEl) {
 		return;
 	}
 
-	messageSearchMatchInfoEl.textContent = `${currentMatchIdx + 1}/${searchMatches.length}`;
+	let hasActiveSession = false;
+	try {
+		hasActiveSession = Boolean(getActiveSession());
+	} catch {
+		hasActiveSession = false;
+	}
+	const isCurrentScope = isCurrentSessionAppSearchScope();
+	const label = isCurrentScope ? "Current" : "All";
+	const title = isCurrentScope ? "Search Range: Current Session" : "Search Range: All Sessions";
+
+	appSearchScopeBtnEl.textContent = label;
+	appSearchScopeBtnEl.title = title;
+	appSearchScopeBtnEl.setAttribute("aria-label", title);
+	appSearchScopeBtnEl.setAttribute("aria-pressed", isCurrentScope ? "true" : "false");
+	appSearchScopeBtnEl.disabled = appSearchScopeLocked || !hasActiveSession;
+}
+
+function toggleAppSearchScope() {
+	if (appSearchScopeLocked) {
+		return;
+	}
+
+	const nextScope = isCurrentSessionAppSearchScope() ? APP_SEARCH_SCOPE_ALL : APP_SEARCH_SCOPE_CURRENT;
+	if (nextScope === APP_SEARCH_SCOPE_CURRENT && !getActiveSession()) {
+		return;
+	}
+
+	setAppSearchScope(nextScope);
+	updateAppSearchScopeButton();
+	refreshAppSearch({ scrollToCurrent: true, resetIndex: true });
+	if (appSearchInputEl) {
+		appSearchInputEl.focus();
+		appSearchInputEl.setSelectionRange(appSearchInputEl.value.length, appSearchInputEl.value.length);
+	}
 }
 
 function setCurrentSearchMatch(index, { scroll = true } = {}) {
@@ -262,8 +248,6 @@ function setCurrentSearchMatch(index, { scroll = true } = {}) {
 
 	if (!searchMatches.length) {
 		currentMatchIdx = -1;
-		updateSearchMatchInfo();
-		updateSearchNavigationState();
 		return;
 	}
 
@@ -271,154 +255,46 @@ function setCurrentSearchMatch(index, { scroll = true } = {}) {
 	currentMatchIdx = normalizedIndex;
 	const activeMatch = searchMatches[currentMatchIdx];
 	activeMatch.classList.add("search-highlight-current");
-	updateSearchMatchInfo();
-	updateSearchNavigationState();
 
 	if (scroll) {
 		activeMatch.scrollIntoView({ behavior: "smooth", block: "center" });
 	}
 }
 
-function refreshMessageSearch({ scrollToActive = false, resetIndex = false } = {}) {
-	if (!messageSearchBarEl || messageSearchBarEl.hidden) {
-		return;
-	}
-
-	const query = messageSearchInputEl ? messageSearchInputEl.value.trim() : "";
-	if (!query) {
-	clearMessageHighlights();
-	searchMatches = [];
-	currentMatchIdx = -1;
+function applyMessageSearchFromQuery(query, options = {}, { scrollToActive = false, resetIndex = false } = {}) {
+	const normalizedQuery = String(query || "").trim();
+	if (!normalizedQuery) {
+		clearMessageHighlights();
+		searchMatches = [];
+		currentMatchIdx = -1;
 		lastSearchQuery = "";
-		lastSearchCaseSensitive = isSearchCaseSensitive;
-		lastSearchRegex = isSearchRegex;
-		lastSearchWholeWord = isSearchWholeWord;
-		updateSearchMatchInfo();
-		updateSearchNavigationState();
+		lastSearchCaseSensitive = Boolean(options.caseSensitive);
+		lastSearchRegex = Boolean(options.useRegex);
+		lastSearchWholeWord = Boolean(options.useWholeWord);
 		return;
 	}
 
 	const previousIndex = resetIndex ? 0 : currentMatchIdx;
-	searchMatches = highlightMessageMatches(query, {
-		caseSensitive: isSearchCaseSensitive,
-		useRegex: isSearchRegex,
-		useWholeWord: isSearchWholeWord
+	searchMatches = highlightMessageMatches(normalizedQuery, {
+		caseSensitive: Boolean(options.caseSensitive),
+		useRegex: Boolean(options.useRegex),
+		useWholeWord: Boolean(options.useWholeWord)
 	});
 	if (!searchMatches.length) {
 		currentMatchIdx = -1;
-		lastSearchQuery = query;
-		lastSearchCaseSensitive = isSearchCaseSensitive;
-		lastSearchRegex = isSearchRegex;
-		lastSearchWholeWord = isSearchWholeWord;
-		updateSearchMatchInfo();
-		updateSearchNavigationState();
+		lastSearchQuery = normalizedQuery;
+		lastSearchCaseSensitive = Boolean(options.caseSensitive);
+		lastSearchRegex = Boolean(options.useRegex);
+		lastSearchWholeWord = Boolean(options.useWholeWord);
 		return;
 	}
 
 	const nextIndex = previousIndex >= 0 ? Math.min(previousIndex, searchMatches.length - 1) : 0;
-	lastSearchQuery = query;
-	lastSearchCaseSensitive = isSearchCaseSensitive;
-	lastSearchRegex = isSearchRegex;
-	lastSearchWholeWord = isSearchWholeWord;
+	lastSearchQuery = normalizedQuery;
+	lastSearchCaseSensitive = Boolean(options.caseSensitive);
+	lastSearchRegex = Boolean(options.useRegex);
+	lastSearchWholeWord = Boolean(options.useWholeWord);
 	setCurrentSearchMatch(nextIndex, { scroll: scrollToActive });
-}
-
-
-function openMessageSearchBar({ focusInput = true } = {}) {
-	if (!messageSearchBarEl || !dialogHeaderSearchBtnEl) {
-		return;
-	}
-
-	dialogHeaderSearchBtnEl.hidden = true;
-	messageSearchBarEl.hidden = false;
-	updateSearchOptionButtons();
-	if (focusInput) {
-		window.requestAnimationFrame(() => {
-			if (messageSearchInputEl) {
-				messageSearchInputEl.focus();
-				messageSearchInputEl.select();
-			}
-		});
-	}
-	refreshMessageSearch();
-}
-
-
-function closeMessageSearchBar() {
-	if (!messageSearchBarEl || !dialogHeaderSearchBtnEl) {
-		return;
-	}
-
-	messageSearchBarEl.hidden = true;
-	dialogHeaderSearchBtnEl.hidden = false;
-	if (messageSearchInputEl) {
-		messageSearchInputEl.value = "";
-	}
-	clearMessageHighlights();
-	searchMatches = [];
-	currentMatchIdx = -1;
-	lastSearchQuery = "";
-	lastSearchCaseSensitive = isSearchCaseSensitive;
-	lastSearchRegex = isSearchRegex;
-	lastSearchWholeWord = isSearchWholeWord;
-	updateSearchMatchInfo();
-	updateSearchNavigationState();
-	dialogHeaderSearchBtnEl.focus();
-}
-
-
-function runMessageSearch() {
-	refreshMessageSearch({ scrollToActive: true, resetIndex: true });
-	if (!searchMatches.length) {
-		updateSearchMatchInfo();
-	}
-}
-
-
-function gotoPrevMatch() {
-	if (!searchMatches.length) {
-		return;
-	}
-
-	setCurrentSearchMatch(currentMatchIdx - 1);
-}
-
-function gotoNextMatch() {
-	if (!searchMatches.length) {
-		return;
-	}
-
-	setCurrentSearchMatch(currentMatchIdx + 1);
-}
-
-function navigateSearchMatchesByWheel(direction) {
-	if (!messageSearchBarEl || messageSearchBarEl.hidden || !searchMatches.length) {
-		return false;
-	}
-
-	if (direction < 0) {
-		gotoPrevMatch();
-		return true;
-	}
-
-	if (direction > 0) {
-		gotoNextMatch();
-		return true;
-	}
-
-	return false;
-}
-
-function handleMessageSearchWheel(event) {
-	const direction = event.deltaY < 0 ? -1 : event.deltaY > 0 ? 1 : 0;
-	if (!direction) {
-		return;
-	}
-
-	const handled = navigateSearchMatchesByWheel(direction);
-	if (handled) {
-		event.preventDefault();
-	}
 }
 
 function getAppSearchOptions() {
@@ -542,7 +418,11 @@ function handleAppSearchBarDragEnd(event) {
 }
 
 function startAppSearchBarDrag(event) {
-	if (!(event instanceof PointerEvent) || event.button !== 0) {
+	if (!(event instanceof PointerEvent)) {
+		return;
+	}
+
+	if (event.pointerType === "mouse" && event.button !== 0) {
 		return;
 	}
 
@@ -588,7 +468,9 @@ function updateAppSearchOptionButtons() {
 }
 
 function updateAppSearchNavigationState() {
-	const hasMatches = appSearchMatchedSessionIds.length > 0;
+	const hasMatches = isCurrentSessionAppSearchScope()
+		? searchMatches.length > 0
+		: appSearchMatchedSessionIds.length > 0;
 	if (appSearchPrevBtnEl) {
 		appSearchPrevBtnEl.disabled = !hasMatches;
 	}
@@ -599,6 +481,16 @@ function updateAppSearchNavigationState() {
 
 function updateAppSearchMatchInfo() {
 	if (!appSearchMatchInfoEl) {
+		return;
+	}
+
+	if (isCurrentSessionAppSearchScope()) {
+		if (!searchMatches.length || currentMatchIdx < 0) {
+			appSearchMatchInfoEl.textContent = "0/0";
+			return;
+		}
+
+		appSearchMatchInfoEl.textContent = `${currentMatchIdx + 1}/${searchMatches.length}`;
 		return;
 	}
 
@@ -641,8 +533,12 @@ function collectMatchedSessionIdsForAppSearch(query, options = {}) {
 		return [];
 	}
 
+	const targetSessions = appSearchScope === APP_SEARCH_SCOPE_CURRENT
+		? sessions.filter((session) => session.id === activeSessionId)
+		: sessions;
+
 	const matchedIds = [];
-	for (const session of sessions) {
+	for (const session of targetSessions) {
 		const matched = Array.isArray(session.messages) && session.messages.some((message) => {
 			const text = String(message?.text || "");
 			pattern.lastIndex = 0;
@@ -659,19 +555,7 @@ function collectMatchedSessionIdsForAppSearch(query, options = {}) {
 
 function applySessionSearchFromAppQuery(query, options = {}) {
 	const normalizedQuery = String(query || "").trim();
-	if (!normalizedQuery) {
-		return;
-	}
-
-	isSearchCaseSensitive = Boolean(options.caseSensitive);
-	isSearchRegex = Boolean(options.useRegex);
-	isSearchWholeWord = Boolean(options.useWholeWord);
-	updateSearchOptionButtons();
-	openMessageSearchBar({ focusInput: options.focusMessageSearchInput !== false });
-	if (messageSearchInputEl) {
-		messageSearchInputEl.value = normalizedQuery;
-	}
-	runMessageSearch();
+	applyMessageSearchFromQuery(normalizedQuery, options, { scrollToActive: true, resetIndex: true });
 }
 
 function setCurrentAppSearchMatch(index, { scroll = true, openSessionForMatch = false, preserveAppSearchFocus = false } = {}) {
@@ -689,7 +573,7 @@ function setCurrentAppSearchMatch(index, { scroll = true, openSessionForMatch = 
 	updateAppSearchNavigationState();
 	syncSessionListAppSearchHighlights({ scrollToCurrent: scroll });
 
-	if (!openSessionForMatch) {
+	if (!openSessionForMatch || appSearchScope === APP_SEARCH_SCOPE_CURRENT) {
 		return;
 	}
 
@@ -700,8 +584,7 @@ function setCurrentAppSearchMatch(index, { scroll = true, openSessionForMatch = 
 
 	openSession(sessionId, false, {
 		appSearchQuery: appSearchInputEl ? appSearchInputEl.value.trim() : "",
-		appSearchOptions: getAppSearchOptions(),
-		focusMessageSearchInput: !preserveAppSearchFocus
+		appSearchOptions: getAppSearchOptions()
 	});
 }
 
@@ -715,6 +598,7 @@ function refreshAppSearch({ scrollToCurrent = false, resetIndex = false } = {}) 
 		appSearchMatchedSessionIds = [];
 		syncAppSearchMatchedSessionSet();
 		appSearchCurrentMatchIdx = -1;
+		applyMessageSearchFromQuery("", getAppSearchOptions(), { resetIndex: true });
 		lastAppSearchQuery = "";
 		lastAppSearchCaseSensitive = isAppSearchCaseSensitive;
 		lastAppSearchRegex = isAppSearchRegex;
@@ -734,6 +618,9 @@ function refreshAppSearch({ scrollToCurrent = false, resetIndex = false } = {}) 
 
 	if (!appSearchMatchedSessionIds.length) {
 		appSearchCurrentMatchIdx = -1;
+		if (appSearchScope === APP_SEARCH_SCOPE_CURRENT) {
+			applyMessageSearchFromQuery("", getAppSearchOptions(), { resetIndex: true });
+		}
 		lastAppSearchQuery = query;
 		lastAppSearchCaseSensitive = isAppSearchCaseSensitive;
 		lastAppSearchRegex = isAppSearchRegex;
@@ -757,13 +644,22 @@ function refreshAppSearch({ scrollToCurrent = false, resetIndex = false } = {}) 
 	lastAppSearchRegex = isAppSearchRegex;
 	lastAppSearchWholeWord = isAppSearchWholeWord;
 	setCurrentAppSearchMatch(nextIndex, { scroll: scrollToCurrent });
+
+	if (appSearchScope === APP_SEARCH_SCOPE_CURRENT) {
+		applySessionSearchFromAppQuery(query, getAppSearchOptions());
+		updateAppSearchMatchInfo();
+		updateAppSearchNavigationState();
+	}
 }
 
-function openAppSearchBar() {
+function openAppSearchBar({ scope = APP_SEARCH_SCOPE_ALL, lockScope = false } = {}) {
 	if (!appSearchBarEl || !appSearchBtnEl) {
 		return;
 	}
 
+	appSearchScopeLocked = Boolean(lockScope);
+	setAppSearchScope(scope);
+	updateAppSearchScopeButton();
 	appSearchBarEl.hidden = false;
 	applyAppSearchFloatingPosition();
 	updateAppSearchOptionButtons();
@@ -789,6 +685,10 @@ function closeAppSearchBar({ restoreTriggerFocus = true } = {}) {
 	appSearchMatchedSessionIds = [];
 	syncAppSearchMatchedSessionSet();
 	appSearchCurrentMatchIdx = -1;
+	applyMessageSearchFromQuery("", getAppSearchOptions(), { resetIndex: true });
+	appSearchScopeLocked = false;
+	setAppSearchScope(APP_SEARCH_SCOPE_ALL);
+	updateAppSearchScopeButton();
 	lastAppSearchQuery = "";
 	lastAppSearchCaseSensitive = isAppSearchCaseSensitive;
 	lastAppSearchRegex = isAppSearchRegex;
@@ -801,13 +701,18 @@ function closeAppSearchBar({ restoreTriggerFocus = true } = {}) {
 	}
 }
 
-function toggleAppSearchBar() {
+function toggleAppSearchBar({ scope = APP_SEARCH_SCOPE_ALL, lockScope = false } = {}) {
 	if (!appSearchBarEl) {
 		return;
 	}
 
 	if (appSearchBarEl.hidden) {
-		openAppSearchBar();
+		openAppSearchBar({ scope, lockScope });
+		return;
+	}
+
+	if (appSearchScope !== scope) {
+		openAppSearchBar({ scope, lockScope });
 		return;
 	}
 
@@ -826,15 +731,26 @@ function runAppSearch() {
 }
 
 function gotoPrevAppSearchMatch({ preserveAppSearchFocus = false } = {}) {
-	if (!appSearchMatchedSessionIds.length) {
-		return;
+	if (isCurrentSessionAppSearchScope()) {
+		if (!searchMatches.length) {
+			return;
+		}
+
+		setCurrentSearchMatch(currentMatchIdx - 1);
+		updateAppSearchMatchInfo();
+		updateAppSearchNavigationState();
+	} else {
+		if (!appSearchMatchedSessionIds.length) {
+			return;
+		}
+
+		let prevIndex = appSearchCurrentMatchIdx - 1;
+		if (prevIndex < 0) {
+			prevIndex = appSearchMatchedSessionIds.length - 1;
+		}
+		setCurrentAppSearchMatch(prevIndex, { openSessionForMatch: true, preserveAppSearchFocus });
 	}
 
-	let prevIndex = appSearchCurrentMatchIdx - 1;
-	if (prevIndex < 0) {
-		prevIndex = appSearchMatchedSessionIds.length - 1;
-	}
-	setCurrentAppSearchMatch(prevIndex, { openSessionForMatch: true, preserveAppSearchFocus });
 	if (appSearchInputEl) {
 		appSearchInputEl.focus();
 		appSearchInputEl.setSelectionRange(appSearchInputEl.value.length, appSearchInputEl.value.length);
@@ -842,15 +758,26 @@ function gotoPrevAppSearchMatch({ preserveAppSearchFocus = false } = {}) {
 }
 
 function gotoNextAppSearchMatch({ preserveAppSearchFocus = false } = {}) {
-	if (!appSearchMatchedSessionIds.length) {
-		return;
+	if (isCurrentSessionAppSearchScope()) {
+		if (!searchMatches.length) {
+			return;
+		}
+
+		setCurrentSearchMatch(currentMatchIdx + 1);
+		updateAppSearchMatchInfo();
+		updateAppSearchNavigationState();
+	} else {
+		if (!appSearchMatchedSessionIds.length) {
+			return;
+		}
+
+		let nextIndext = appSearchCurrentMatchIdx + 1;
+		if (nextIndext >= appSearchMatchedSessionIds.length) {
+			nextIndext = 0;
+		}
+		setCurrentAppSearchMatch(nextIndext, { openSessionForMatch: true, preserveAppSearchFocus });
 	}
 
-	let nextIndext = appSearchCurrentMatchIdx + 1;
-	if (nextIndext >= appSearchMatchedSessionIds.length) {
-		nextIndext = 0;
-	}
-	setCurrentAppSearchMatch(nextIndext, { openSessionForMatch: true, preserveAppSearchFocus });
 	if (appSearchInputEl) {
 		appSearchInputEl.focus();
 		appSearchInputEl.setSelectionRange(appSearchInputEl.value.length, appSearchInputEl.value.length);
@@ -931,58 +858,33 @@ function getOpenSessionOptionsForAppSearchMatch(item) {
 }
 
 if (dialogHeaderSearchBtnEl) {
-	dialogHeaderSearchBtnEl.addEventListener("click", openMessageSearchBar);
-}
-if (closeMessageSearchBtnEl) {
-	closeMessageSearchBtnEl.addEventListener("click", closeMessageSearchBar);
-}
-if (messageSearchInputEl) {
-	messageSearchInputEl.addEventListener("keydown", (event) => {
-		if (event.key === "Enter") {
-			event.preventDefault();
-			const query = messageSearchInputEl.value.trim();
-			const canNavigateExistingResults =
-				Boolean(query) &&
-				query === lastSearchQuery &&
-				isSearchCaseSensitive === lastSearchCaseSensitive &&
-				isSearchRegex === lastSearchRegex &&
-				isSearchWholeWord === lastSearchWholeWord &&
-				searchMatches.length > 0 &&
-				currentMatchIdx >= 0;
-
-			if (canNavigateExistingResults) {
-				gotoNextMatch();
-			} else {
-				runMessageSearch();
-			}
+	dialogHeaderSearchBtnEl.addEventListener("click", () => {
+		if (!appSearchBarEl || appSearchBarEl.hidden) {
+			openAppSearchBar({ scope: APP_SEARCH_SCOPE_CURRENT, lockScope: true });
+			return;
 		}
 
-		if (event.key === "Escape") {
-			event.preventDefault();
-			closeMessageSearchBar();
+		if (appSearchScopeLocked) {
+			closeAppSearchBar({ restoreTriggerFocus: false });
+			dialogHeaderSearchBtnEl.focus();
 		}
 	});
 }
-if (messageSearchPrevBtnEl) {
-	messageSearchPrevBtnEl.addEventListener("click", gotoPrevMatch);
-}
-if (messageSearchNextBtnEl) {
-	messageSearchNextBtnEl.addEventListener("click", gotoNextMatch);
-}
-if (messageSearchCaseBtnEl) {
-	messageSearchCaseBtnEl.addEventListener("click", toggleSearchCaseSensitive);
-}
-if (messageSearchRegexBtnEl) {
-	messageSearchRegexBtnEl.addEventListener("click", toggleSearchRegex);
-}
-if (messageSearchWholeWordBtnEl) {
-	messageSearchWholeWordBtnEl.addEventListener("click", toggleSearchWholeWord);
-}
-if (messageSearchBarEl) {
-	messageSearchBarEl.addEventListener("wheel", handleMessageSearchWheel, { passive: false });
-}
 if (appSearchBtnEl) {
-	appSearchBtnEl.addEventListener("click", toggleAppSearchBar);
+	appSearchBtnEl.addEventListener("click", () => {
+		if (!appSearchBarEl) {
+			return;
+		}
+
+		if (!appSearchBarEl.hidden && appSearchScopeLocked) {
+			return;
+		}
+
+		toggleAppSearchBar({ scope: APP_SEARCH_SCOPE_ALL, lockScope: false });
+	});
+}
+if (appSearchScopeBtnEl) {
+	appSearchScopeBtnEl.addEventListener("click", toggleAppSearchScope);
 }
 if (closeAppSearchBtnEl) {
 	closeAppSearchBtnEl.addEventListener("click", closeAppSearchBar);
@@ -1039,9 +941,6 @@ window.addEventListener("pointermove", handleAppSearchBarDragMove);
 window.addEventListener("pointerup", handleAppSearchBarDragEnd);
 window.addEventListener("pointercancel", handleAppSearchBarDragEnd);
 
-updateSearchOptionButtons();
-updateSearchMatchInfo();
-updateSearchNavigationState();
 updateAppSearchOptionButtons();
 updateAppSearchMatchInfo();
 updateAppSearchNavigationState();
@@ -3670,7 +3569,17 @@ function renderMessages({ preserveScroll = false } = {}) {
 	} else {
 		messagesEl.scrollTop = messagesEl.scrollHeight;
 	}
-	refreshMessageSearch({ scrollToActive: currentMatchIdx >= 0 });
+	if (lastSearchQuery) {
+		applyMessageSearchFromQuery(
+			lastSearchQuery,
+			{
+				caseSensitive: lastSearchCaseSensitive,
+				useRegex: lastSearchRegex,
+				useWholeWord: lastSearchWholeWord
+			},
+			{ scrollToActive: currentMatchIdx >= 0 }
+		);
+	}
 }
 
 function renderAll({ preserveMessageScroll = false } = {}) {
@@ -3746,8 +3655,8 @@ function updateInputActionStates() {
 	}
 	if (dialogHeaderSearchBtnEl) {
 		dialogHeaderSearchBtnEl.disabled = !hasActiveSession;
-		if (dialogHeaderSearchBtnEl.disabled && !messageSearchBarEl?.hidden) {
-			closeMessageSearchBar();
+		if (dialogHeaderSearchBtnEl.disabled && appSearchScope === APP_SEARCH_SCOPE_CURRENT && appSearchBarEl && !appSearchBarEl.hidden) {
+			closeAppSearchBar({ restoreTriggerFocus: false });
 		}
 	}
 	if (appSearchBtnEl) {
@@ -3757,6 +3666,7 @@ function updateInputActionStates() {
 			closeAppSearchBar();
 		}
 	}
+	updateAppSearchScopeButton();
 	if (sendBtnEl) {
 		const hasPromptText = Boolean(promptInputEl && promptInputEl.value.trim());
 		sendBtnEl.disabled = !hasActiveSession || isLocked || promptPolisherBusy || (!hasInFlightStream && !hasPromptText);
@@ -3947,8 +3857,7 @@ function openSession(sessionId, fromListClick = false, options = {}) {
 
 	if (options && options.appSearchQuery) {
 		applySessionSearchFromAppQuery(options.appSearchQuery, {
-			...(options.appSearchOptions || {}),
-			focusMessageSearchInput: options.focusMessageSearchInput
+			...(options.appSearchOptions || {})
 		});
 	}
 
