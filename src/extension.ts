@@ -5,7 +5,10 @@ import {
 	setServerStateChangeHandler,
 	startWebServer,
 	stopWebServer,
-	getNetworkStates
+	getNetworkStates,
+	getCurrentAccessCode,
+	regenerateAccessCode,
+	setAccessCode
 } from './network';
 import { getLLMStates } from './llm';
 import { createStatusBarUiController } from './ui';
@@ -24,6 +27,9 @@ export function activate(context: vscode.ExtensionContext) {
 		openMenuCommand: OPEN_MENU_COMMAND,
 		isServerRunning,
 		getServerRuntimeState: () => getServerRuntimeState(EXTENSION_NAME_FOR_UI),
+		getCurrentAccessCode,
+		regenerateAccessCode,
+		setAccessCode,
 		startWebServer: () => startWebServer(context),
 		stopWebServer
 	});

@@ -3,6 +3,7 @@ import * as http from 'http';
 import * as path from 'path';
 import * as os from 'os';
 import * as dgram from 'dgram';
+import * as crypto from 'crypto';
 import { promises as fs } from 'fs';
 import { clearAllSessionHistory, clearSessionHistory, generateChatReply, listCopilotChatModels } from './llm';
 import {EXTENSION_ID, debugLog} from './helper';
@@ -13,6 +14,7 @@ let webServer: http.Server | undefined;
 let serverUrl: string | undefined;
 let lanUrls: string[] = [];
 let onServerStateChanged: (() => void) | undefined;
+let accessCode: string | undefined;
 
 type ServerStartResult = {
 	localUrl: string;
@@ -26,10 +28,35 @@ type ServerRuntimeState = {
 	networkUrls: string[];
 	usedPort: number | null;
 	statusText: string;
+	hasAccessCode: boolean;
 };
 
 export function getNetworkStates():any {
-	return {webServer: webServer, serverUrl: serverUrl, lanUrls: lanUrls};
+	return {webServer: webServer, serverUrl: serverUrl, lanUrls: lanUrls, hasAccessCode: Boolean(accessCode)};
+}
+
+export function getCurrentAccessCode(): string {
+	if (!accessCode) {
+		accessCode = generateAccessCode();
+	}
+	return accessCode;
+}
+
+export function regenerateAccessCode(): string {
+	accessCode = generateAccessCode();
+	notifyServerStateChanged();
+	return accessCode;
+}
+
+export function setAccessCode(code: string): string {
+	const normalized = String(code || '').trim();
+	if (!normalized) {
+		throw new Error('Access code cannot be empty.');
+	}
+
+	accessCode = normalized;
+	notifyServerStateChanged();
+	return accessCode;
 }
 
 export function setServerStateChangeHandler(handler?: () => void): void {
@@ -56,7 +83,8 @@ export function getServerRuntimeState(extensionNameForUi: string): ServerRuntime
 			localUrl: serverUrl ?? null,
 			networkUrls: lanUrls,
 			usedPort,
-			statusText: `${extensionNameForUi} is running on port ${usedPort}.`
+			statusText: `${extensionNameForUi} is running on port ${usedPort}.`,
+			hasAccessCode: Boolean(accessCode)
 		};
 	}
 
@@ -65,7 +93,8 @@ export function getServerRuntimeState(extensionNameForUi: string): ServerRuntime
 		localUrl: null,
 		networkUrls: [],
 		usedPort: null,
-		statusText: `${extensionNameForUi} is stopped.`
+		statusText: `${extensionNameForUi} is stopped.`,
+		hasAccessCode: Boolean(accessCode)
 	};
 }
 
@@ -83,6 +112,9 @@ export async function startWebServer(context: vscode.ExtensionContext): Promise<
 	const webRoot = context.asAbsolutePath(path.join('src', 'webapp'));
 	const startPort = getConfiguredStartPort();
 	const { server, port } = await createServerWithPortFallback(webRoot, startPort);
+	if (!accessCode) {
+		accessCode = generateAccessCode();
+	}
 
 	webServer = server;
 	serverUrl = `http://127.0.0.1:${port}`;
@@ -140,6 +172,18 @@ async function handleRequest(
 		const method = request.method ?? 'GET';
 		const url = new URL(request.url ?? '/', 'http://127.0.0.1');
 
+		if (method === 'POST' && url.pathname === '/api/access-code/verify') {
+			await handleAuthVerifyRequest(request, response);
+			return;
+		}
+
+		if (url.pathname.startsWith('/api/') && !isAuthorizedRequest(request)) {
+			sendJson(response, 401, {
+				error: 'Unauthorized: valid access code required.'
+			});
+			return;
+		}
+
 		if (method === 'POST' && url.pathname === '/api/chat') {
 			await handleChatRequest(request, response);
 			return;
@@ -171,6 +215,25 @@ async function handleRequest(
 		debugLog(`handle requrest failed, error : ${message}`);
 		sendJson(response, 500, { error: message });
 	}
+}
+
+async function handleAuthVerifyRequest(
+	request: http.IncomingMessage,
+	response: http.ServerResponse
+): Promise<void> {
+	const body = await readJsonBody(request);
+	const submittedAccessCode = typeof body.accessCode === 'string' ? body.accessCode.trim() : '';
+	if (!submittedAccessCode) {
+		sendJson(response, 400, { error: 'accessCode is required.' });
+		return;
+	}
+
+	if (isAccessCodeValid(submittedAccessCode)) {
+		sendJson(response, 200, { ok: true });
+		return;
+	}
+
+	sendJson(response, 401, { ok: false, error: 'Invalid access code.' });
 }
 
 async function handleChatRequest(
@@ -436,6 +499,48 @@ function sendText(response: http.ServerResponse, statusCode: number, body: strin
 
 function sendNdjsonEvent(response: http.ServerResponse, payload: Record<string, unknown>): void {
 	response.write(`${JSON.stringify(payload)}\n`);
+}
+
+function generateAccessCode(): string {
+	return crypto.randomBytes(18).toString('base64url');
+}
+
+function isAuthorizedRequest(request: http.IncomingMessage): boolean {
+	const submittedAccessCode = readBearerAccessCode(request);
+	if (!submittedAccessCode) {
+		return false;
+	}
+
+	return isAccessCodeValid(submittedAccessCode);
+}
+
+function readBearerAccessCode(request: http.IncomingMessage): string {
+	const header = request.headers.authorization;
+	if (typeof header !== 'string') {
+		return '';
+	}
+
+	const match = /^Bearer\s+(.+)$/i.exec(header.trim());
+	if (!match) {
+		return '';
+	}
+
+	return match[1].trim();
+}
+
+function isAccessCodeValid(submittedAccessCode: string): boolean {
+	const expected = accessCode;
+	if (!expected) {
+		return false;
+	}
+
+	const submittedBuffer = Buffer.from(submittedAccessCode);
+	const expectedBuffer = Buffer.from(expected);
+	if (submittedBuffer.byteLength !== expectedBuffer.byteLength) {
+		return false;
+	}
+
+	return crypto.timingSafeEqual(submittedBuffer, expectedBuffer);
 }
 
 

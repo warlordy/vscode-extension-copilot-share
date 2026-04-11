@@ -6,6 +6,14 @@ let modelPickerState = {
 };
 const activeStreamControllers = new Map();
 
+function getApiFetch() {
+	if (typeof window.copilotShareAuthFetch === "function") {
+		return window.copilotShareAuthFetch;
+	}
+
+	return fetch;
+}
+
 function getOrCreateSessionControllerSet(sessionId) {
 	const key = String(sessionId || "");
 	if (!key) {
@@ -390,7 +398,7 @@ async function loadCopilotModels() {
 	selectEl.disabled = true;
 
 	try {
-		const response = await fetch("/api/models");
+		const response = await getApiFetch()("/api/models");
 		if (!response.ok) {
 			throw new Error(`HTTP ${response.status}`);
 		}
@@ -478,7 +486,7 @@ window.onUserSend = async ({ sessionId, text, modelId }) => {
 	attachStreamController(sessionId, controller);
 
 	try {
-		const response = await fetch('/api/chat', {
+		const response = await getApiFetch()('/api/chat', {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
 			signal: controller.signal,
@@ -582,6 +590,11 @@ window.onUserSend = async ({ sessionId, text, modelId }) => {
 		}
 
 		const message = error instanceof Error ? error.message : String(error);
+		if (message === "Authentication canceled.") {
+			window.appendAgentMessage(sessionId, "Request canceled: access code verification was not completed.");
+			return;
+		}
+
 		if (streamMessageId && typeof window.finalizeAgentMessageStream === "function") {
 			window.finalizeAgentMessageStream(sessionId, streamMessageId, streamedText || `Request failed: ${message}`);
 			return;
@@ -595,7 +608,7 @@ window.onUserSend = async ({ sessionId, text, modelId }) => {
 window.resetChatContext = async ({ sessionId, clearAll = false } = {}) => {
 	const body = clearAll ? { clearAll: true } : { sessionId };
 
-	const response = await fetch('/api/chat/reset', {
+	const response = await getApiFetch()('/api/chat/reset', {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify(body)
@@ -621,7 +634,7 @@ window.summarizeSessionMessages = async ({ sessionId, summarySource, modelId } =
 		throw new Error("summarySource is required.");
 	}
 
-	const response = await fetch('/api/chat', {
+	const response = await getApiFetch()('/api/chat', {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify({
@@ -664,7 +677,7 @@ window.polishUserPrompt = async ({ sessionId, prompt, modelId } = {}) => {
 		throw new Error("prompt is required.");
 	}
 
-	const response = await fetch('/api/chat', {
+	const response = await getApiFetch()('/api/chat', {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify({

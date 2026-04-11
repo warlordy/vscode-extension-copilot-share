@@ -18,7 +18,7 @@ const STATUS_CODICON_SETTING_KEY = 'statusCodiconOption';
 
 let selectedStatusCodiconKey: StatusCodiconOptionKey = 'vm';
 
-type MenuAction = 'start' | 'stop' | 'open' | 'copyLocal' | 'copyPublic' | 'setIcons';
+type MenuAction = 'start' | 'stop' | 'open' | 'copyLocal' | 'copyPublic' | 'copyAccessCode' | 'regenerateAccessCode' | 'setAccessCode' | 'setIcons';
 
 type ControlMenuItem = vscode.QuickPickItem & {
 	action?: MenuAction;
@@ -39,7 +39,11 @@ type StatusBarUiDependencies = {
 		networkUrls: string[];
 		usedPort: number | null;
 		statusText: string;
+		hasAccessCode: boolean;
 	};
+	getCurrentAccessCode: () => string;
+	regenerateAccessCode: () => string;
+	setAccessCode: (code: string) => string;
 	startWebServer: () => Promise<{
 		localUrl: string;
 		networkUrls: string[];
@@ -123,6 +127,10 @@ async function openControlMenu(
 			{ label: '$(globe) Open Web', action: 'open' },
 			{ label: '$(copy) Copy Local URL', action: 'copyLocal' },
 			{ label: '$(copy) Copy Public URL', action: 'copyPublic' },
+			{ label: 'Access Code', kind: vscode.QuickPickItemKind.Separator },
+			{ label: '$(sync) Generate Access Code', action: 'regenerateAccessCode' },
+			{ label: '$(copy) Copy Access Code', action: 'copyAccessCode' },
+			{ label: '$(edit) Set Access Code', action: 'setAccessCode' },
 			{ label: 'Custom', kind: vscode.QuickPickItemKind.Separator },
 			{ label: '$(paintcan) Set Status Icons', action: 'setIcons' }
 		];
@@ -190,6 +198,39 @@ async function openControlMenu(
 
 				await vscode.env.clipboard.writeText(latestState.networkUrls[0]);
 				void vscode.window.showInformationMessage(`Copied: ${latestState.networkUrls[0]}`);
+				break;
+			}
+			case 'copyAccessCode': {
+				const accessCode = dependencies.getCurrentAccessCode();
+				await vscode.env.clipboard.writeText(accessCode);
+				void vscode.window.showInformationMessage('Access code copied.');
+				break;
+			}
+			case 'regenerateAccessCode': {
+				const accessCode = dependencies.regenerateAccessCode();
+				void vscode.window.showInformationMessage(`Access code regenerated: ${accessCode}`);
+				break;
+			}
+			case 'setAccessCode': {
+				const typedAccessCode = await vscode.window.showInputBox({
+					prompt: 'Set access code for LAN web clients',
+					placeHolder: 'Enter an access code',
+					ignoreFocusOut: true,
+					value: dependencies.getCurrentAccessCode(),
+					validateInput: (value) => {
+						if (!String(value || '').trim()) {
+							return 'Access code cannot be empty.';
+						}
+						return undefined;
+					}
+				});
+
+				if (typeof typedAccessCode !== 'string') {
+					break;
+				}
+
+				dependencies.setAccessCode(typedAccessCode);
+				void vscode.window.showInformationMessage('Access code updated.');
 				break;
 			}
 			case 'setIcons': {
