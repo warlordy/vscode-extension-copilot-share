@@ -276,8 +276,10 @@ async function copilotShareAuthFetch(resource, init = {}, options = {}) {
 		return fetch(resource, baseInit);
 	}
 
-	let accessCode = await ensureAccessCode({ forcePrompt: false });
-	baseInit.headers.set("Authorization", `Bearer ${accessCode}`);
+	const storedAccessCode = readStoredAccessCode();
+	if (storedAccessCode) {
+		baseInit.headers.set("Authorization", `Bearer ${storedAccessCode}`);
+	}
 
 	let response = await fetch(resource, baseInit);
 	if (response.status !== 401 || !shouldRetryOnUnauthorized) {

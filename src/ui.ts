@@ -18,7 +18,18 @@ const STATUS_CODICON_SETTING_KEY = 'statusCodiconOption';
 
 let selectedStatusCodiconKey: StatusCodiconOptionKey = 'vm';
 
-type MenuAction = 'start' | 'stop' | 'open' | 'copyLocal' | 'copyPublic' | 'copyAccessCode' | 'regenerateAccessCode' | 'setAccessCode' | 'setIcons';
+type MenuAction =
+	| 'start'
+	| 'stop'
+	| 'open'
+	| 'copyLocal'
+	| 'copyPublic'
+	| 'copyAccessCode'
+	| 'regenerateAccessCode'
+	| 'setAccessCode'
+	| 'accessCodeUnavailableInfo'
+	| 'accessCodeDisabledInfo'
+	| 'setIcons';
 
 type ControlMenuItem = vscode.QuickPickItem & {
 	action?: MenuAction;
@@ -40,14 +51,16 @@ type StatusBarUiDependencies = {
 		usedPort: number | null;
 		statusText: string;
 		hasAccessCode: boolean;
+		accessControlEnabled: boolean;
 	};
 	getCurrentAccessCode: () => string;
 	regenerateAccessCode: () => string;
 	setAccessCode: (code: string) => string;
-	startWebServer: () => Promise<{
+	startWebServer: (options?: { accessControlEnabled?: boolean }) => Promise<{
 		localUrl: string;
 		networkUrls: string[];
 		usedPort: number;
+		accessControlEnabled: boolean;
 	}>;
 	stopWebServer: () => Promise<void>;
 };
@@ -115,22 +128,45 @@ async function openControlMenu(
 ): Promise<void> {
 	while (true) {
 		const state = dependencies.getServerRuntimeState();
+		let accessControlStatusText;
+		let accessControlItems: ControlMenuItem[];
+		if (!(state.isRunning)) {
+			accessControlStatusText = 'Unavailable';
+			accessControlItems = [
+				{ label: '$(sync) Regenerate Access Code', action: 'accessCodeUnavailableInfo' },
+				{ label: '$(code) Copy Access Code', action: 'accessCodeUnavailableInfo' },
+				{ label: '$(edit) Set Access Code', action: 'accessCodeUnavailableInfo' }
+			];
+		} else if (state.accessControlEnabled) {
+			accessControlStatusText = 'Enabled';
+			accessControlItems = [
+				{ label: '$(sync) Regenerate Access Code', action: 'regenerateAccessCode' },
+				{ label: '$(code) Copy Access Code', action: 'copyAccessCode' },
+				{ label: '$(edit) Set Access Code', action: 'setAccessCode' }
+			];
+		} else {
+			accessControlStatusText = 'Disabled';
+			accessControlItems = [
+				{ label: '$(sync) Regenerate Access Code', action: 'accessCodeDisabledInfo' },
+				{ label: '$(code) Copy Access Code', action: 'accessCodeDisabledInfo' },
+				{ label: '$(edit) Set Access Code', action: 'accessCodeDisabledInfo' }
+			];
+		}
+
 		const items: ControlMenuItem[] = [
 			{ label: 'Service', kind: vscode.QuickPickItemKind.Separator },
 			{
 				label: state.isRunning ? '$(check) HTTP Service: Running' : '$(circle-slash) HTTP Service: Stopped',
-				detail: state.statusText
+				detail: `${state.statusText} Access Control is ${accessControlStatusText}.`
 			},
 			{ label: '$(play) Start Sharing', action: 'start' },
 			{ label: '$(debug-stop) Stop Sharing', action: 'stop' },
 			{ label: 'Links', kind: vscode.QuickPickItemKind.Separator },
 			{ label: '$(globe) Open Web', action: 'open' },
-			{ label: '$(copy) Copy Local URL', action: 'copyLocal' },
-			{ label: '$(copy) Copy Public URL', action: 'copyPublic' },
-			{ label: 'Access Code', kind: vscode.QuickPickItemKind.Separator },
-			{ label: '$(sync) Generate Access Code', action: 'regenerateAccessCode' },
-			{ label: '$(copy) Copy Access Code', action: 'copyAccessCode' },
-			{ label: '$(edit) Set Access Code', action: 'setAccessCode' },
+			{ label: '$(window) Copy Local URL', action: 'copyLocal' },
+			{ label: '$(multiple-windows) Copy Public URL', action: 'copyPublic' },
+			{ label: `Access Control`, kind: vscode.QuickPickItemKind.Separator },
+			...accessControlItems,
 			{ label: 'Custom', kind: vscode.QuickPickItemKind.Separator },
 			{ label: '$(paintcan) Set Status Icons', action: 'setIcons' }
 		];
@@ -148,9 +184,41 @@ async function openControlMenu(
 		switch (picked.action) {
 			case 'start': {
 				const { isRunning } = dependencies.isServerRunning();
-				const started = await dependencies.startWebServer();
+				if (isRunning) {
+					const latestState = dependencies.getServerRuntimeState();
+					const modeText = latestState.accessControlEnabled ? 'enabled' : 'disabled';
+					void vscode.window.showInformationMessage(
+						`${dependencies.extensionNameForUi} is already running on port ${latestState.usedPort}. Access control is ${modeText}.`
+					);
+					break;
+				}
+
+				const modePick = await vscode.window.showQuickPick([
+					{
+						label: '$(lock) Enable Access Control',
+						detail: 'Web users must provide an access code when sending requests.',
+						mode: 'enable'
+					},
+					{
+						label: '$(unlock) Disable Access Control',
+						detail: 'Web users can send requests without access code verification.',
+						mode: 'disable'
+					}
+				] as Array<vscode.QuickPickItem & { mode: 'enable' | 'disable' }>, {
+					placeHolder: 'Select access control mode for this sharing session',
+					matchOnDescription: true,
+					ignoreFocusOut: true
+				});
+
+				if (!modePick) {
+					break;
+				}
+
+				const enableAccessControl = modePick.mode === 'enable';
+				const started = await dependencies.startWebServer({ accessControlEnabled: enableAccessControl });
+				const modeText = started.accessControlEnabled ? 'enabled' : 'disabled';
 				const msg = !isRunning
-					? `${dependencies.extensionNameForUi} started on port ${started.usedPort}.`
+					? `${dependencies.extensionNameForUi} started on port ${started.usedPort}. Access control ${modeText}.`
 					: `${dependencies.extensionNameForUi} is already running on port ${started.usedPort}.`;
 				void vscode.window.showInformationMessage(msg);
 				break;
@@ -192,7 +260,7 @@ async function openControlMenu(
 			case 'copyPublic': {
 				const latestState = dependencies.getServerRuntimeState();
 				if (latestState.networkUrls.length === 0) {
-					void vscode.window.showWarningMessage('LAN IPv4 URL is unavailable to copy.');
+					void vscode.window.showWarningMessage('Public URL is unavailable to copy.');
 					break;
 				}
 
@@ -231,6 +299,18 @@ async function openControlMenu(
 
 				dependencies.setAccessCode(typedAccessCode);
 				void vscode.window.showInformationMessage('Access code updated.');
+				break;
+			}
+			case 'accessCodeUnavailableInfo': {
+				void vscode.window.showInformationMessage(
+					'Access code options are unavailable because sharing is not running. Start sharing and enable access control to use them.'
+				);
+				break;
+			}
+			case 'accessCodeDisabledInfo': {
+				void vscode.window.showInformationMessage(
+					'Access control is disabled for this sharing session. Stop sharing, then start again and choose Enable Access Control to use access code options.'
+				);
 				break;
 			}
 			case 'setIcons': {

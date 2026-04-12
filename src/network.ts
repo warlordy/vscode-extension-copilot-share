@@ -15,11 +15,17 @@ let serverUrl: string | undefined;
 let lanUrls: string[] = [];
 let onServerStateChanged: (() => void) | undefined;
 let accessCode: string | undefined;
+let accessControlEnabled = true;
 
 type ServerStartResult = {
 	localUrl: string;
 	networkUrls: string[];
 	usedPort: number;
+	accessControlEnabled: boolean;
+};
+
+type StartWebServerOptions = {
+	accessControlEnabled?: boolean;
 };
 
 type ServerRuntimeState = {
@@ -29,10 +35,17 @@ type ServerRuntimeState = {
 	usedPort: number | null;
 	statusText: string;
 	hasAccessCode: boolean;
+	accessControlEnabled: boolean;
 };
 
 export function getNetworkStates():any {
-	return {webServer: webServer, serverUrl: serverUrl, lanUrls: lanUrls, hasAccessCode: Boolean(accessCode)};
+	return {
+		webServer: webServer,
+		serverUrl: serverUrl,
+		lanUrls: lanUrls,
+		hasAccessCode: Boolean(accessCode),
+		accessControlEnabled
+	};
 }
 
 export function getCurrentAccessCode(): string {
@@ -57,6 +70,11 @@ export function setAccessCode(code: string): string {
 	accessCode = normalized;
 	notifyServerStateChanged();
 	return accessCode;
+}
+
+export function setAccessControlEnabled(enabled: boolean): void {
+	accessControlEnabled = Boolean(enabled);
+	notifyServerStateChanged();
 }
 
 export function setServerStateChangeHandler(handler?: () => void): void {
@@ -84,7 +102,8 @@ export function getServerRuntimeState(extensionNameForUi: string): ServerRuntime
 			networkUrls: lanUrls,
 			usedPort,
 			statusText: `${extensionNameForUi} is running on port ${usedPort}.`,
-			hasAccessCode: Boolean(accessCode)
+			hasAccessCode: Boolean(accessCode),
+			accessControlEnabled
 		};
 	}
 
@@ -94,25 +113,37 @@ export function getServerRuntimeState(extensionNameForUi: string): ServerRuntime
 		networkUrls: [],
 		usedPort: null,
 		statusText: `${extensionNameForUi} is stopped.`,
-		hasAccessCode: Boolean(accessCode)
+		hasAccessCode: Boolean(accessCode),
+		accessControlEnabled
 	};
 }
 
-export async function startWebServer(context: vscode.ExtensionContext): Promise<ServerStartResult> {
+export async function startWebServer(
+	context: vscode.ExtensionContext,
+	options: StartWebServerOptions = {}
+): Promise<ServerStartResult> {
+	if (typeof options.accessControlEnabled === 'boolean') {
+		accessControlEnabled = options.accessControlEnabled;
+	}
+
 	if (webServer && serverUrl) {
 		const activeAddress = webServer.address();
 		const activePort = activeAddress && typeof activeAddress !== 'string' ? activeAddress.port : getConfiguredStartPort();
 		return {
 			localUrl: serverUrl,
 			networkUrls: lanUrls,
-			usedPort: activePort
+			usedPort: activePort,
+			accessControlEnabled
 		};
 	}
 
 	const webRoot = context.asAbsolutePath(path.join('src', 'webapp'));
 	const startPort = getConfiguredStartPort();
 	const { server, port } = await createServerWithPortFallback(webRoot, startPort);
-	if (!accessCode) {
+	// Rotate access code on every cold start when access control is enabled.
+	if (accessControlEnabled) {
+		accessCode = generateAccessCode();
+	} else if (!accessCode) {
 		accessCode = generateAccessCode();
 	}
 
@@ -135,7 +166,8 @@ export async function startWebServer(context: vscode.ExtensionContext): Promise<
 	return {
 		localUrl: serverUrl,
 		networkUrls: lanUrls,
-		usedPort: port
+		usedPort: port,
+		accessControlEnabled
 	};
 }
 
@@ -177,7 +209,7 @@ async function handleRequest(
 			return;
 		}
 
-		if (url.pathname.startsWith('/api/') && !isAuthorizedRequest(request)) {
+		if (isAccessControlRequiredPath(url.pathname) && accessControlEnabled && !isAuthorizedRequest(request)) {
 			sendJson(response, 401, {
 				error: 'Unauthorized: valid access code required.'
 			});
@@ -221,6 +253,11 @@ async function handleAuthVerifyRequest(
 	request: http.IncomingMessage,
 	response: http.ServerResponse
 ): Promise<void> {
+	if (!accessControlEnabled) {
+		sendJson(response, 200, { ok: true, accessControlEnabled: false });
+		return;
+	}
+
 	const body = await readJsonBody(request);
 	const submittedAccessCode = typeof body.accessCode === 'string' ? body.accessCode.trim() : '';
 	if (!submittedAccessCode) {
@@ -401,7 +438,8 @@ function handleServerInfoRequest(response: http.ServerResponse): void {
 	sendJson(response, 200, {
 		localUrl: serverUrl ?? null,
 		lanUrls,
-		usedPort
+		usedPort,
+		accessControlEnabled
 	});
 }
 
@@ -512,6 +550,10 @@ function isAuthorizedRequest(request: http.IncomingMessage): boolean {
 	}
 
 	return isAccessCodeValid(submittedAccessCode);
+}
+
+function isAccessControlRequiredPath(pathname: string): boolean {
+	return pathname === '/api/chat' || pathname === '/api/chat/reset';
 }
 
 function readBearerAccessCode(request: http.IncomingMessage): string {

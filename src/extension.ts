@@ -30,7 +30,7 @@ export function activate(context: vscode.ExtensionContext) {
 		getCurrentAccessCode,
 		regenerateAccessCode,
 		setAccessCode,
-		startWebServer: () => startWebServer(context),
+		startWebServer: (options) => startWebServer(context, options),
 		stopWebServer
 	});
 
