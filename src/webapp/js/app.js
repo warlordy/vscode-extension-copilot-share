@@ -2672,6 +2672,10 @@ function normalizeSessionState(session) {
 		session.isOpen = true;
 	}
 
+	if (typeof session.isPinned !== "boolean") {
+		session.isPinned = false;
+	}
+
 	if (typeof session.summaryMarkdown !== "string") {
 		session.summaryMarkdown = "";
 	}
@@ -3257,11 +3261,17 @@ function getPreview(session) {
 }
 
 function sortSessionsByLatest() {
-	if (hasCustomSessionOrder) {
-		return;
-	}
-
 	sessions.sort((a, b) => {
+		const aPinned = Boolean(a?.isPinned);
+		const bPinned = Boolean(b?.isPinned);
+		if (aPinned !== bPinned) {
+			return Number(bPinned) - Number(aPinned);
+		}
+
+		if (hasCustomSessionOrder || aPinned) {
+			return 0;
+		}
+
 		const aTime = a.messages[a.messages.length - 1]?.timestamp || 0;
 		const bTime = b.messages[b.messages.length - 1]?.timestamp || 0;
 		return bTime - aTime;
@@ -3275,8 +3285,30 @@ function clearSessionDropMarkers() {
 	});
 }
 
+function isPinnedSession(sessionId) {
+	const target = sessions.find((item) => item.id === sessionId);
+	if (!target) {
+		return false;
+	}
+
+	normalizeSessionState(target);
+	return target.isPinned === true;
+}
+
+function canMoveSessionWithinPinnedGroup(sessionId, targetSessionId) {
+	if (!sessionId || !targetSessionId) {
+		return false;
+	}
+
+	return isPinnedSession(sessionId) === isPinnedSession(targetSessionId);
+}
+
 function moveSessionInList(sessionId, targetSessionId, insertAfter) {
 	if (!sessionId || !targetSessionId || sessionId === targetSessionId) {
+		return false;
+	}
+
+	if (!canMoveSessionWithinPinnedGroup(sessionId, targetSessionId)) {
 		return false;
 	}
 
@@ -3343,6 +3375,25 @@ function toggleSessionOpenState(sessionId) {
 
 	normalizeSessionState(target);
 	target.isOpen = !target.isOpen;
+	renderAll({ preserveMessageScroll: true });
+	saveState();
+}
+
+function toggleSessionPinned(sessionId) {
+	const targetIndex = sessions.findIndex((item) => item.id === sessionId);
+	if (targetIndex < 0) {
+		return;
+	}
+
+	const target = sessions[targetIndex];
+	normalizeSessionState(target);
+	target.isPinned = !target.isPinned;
+
+	if (target.isPinned) {
+		sessions.splice(targetIndex, 1);
+		sessions.unshift(target);
+	}
+
 	renderAll({ preserveMessageScroll: true });
 	saveState();
 }
@@ -3430,6 +3481,7 @@ function renderSessionList() {
 		.map((session) => {
 			const latest = session.messages[session.messages.length - 1];
 			const activeClass = session.id === activeSessionId ? "active" : "";
+			const isPinned = Boolean(session.isPinned);
 			const isAppSearchMatch = appSearchMatchedSessionIdSet.has(session.id);
 			const currentAppSearchSessionId = appSearchCurrentMatchIdx >= 0 ? appSearchMatchedSessionIds[appSearchCurrentMatchIdx] : "";
 			const appSearchMatchClass = isAppSearchMatch ? "session-item-app-match" : "";
@@ -3440,7 +3492,9 @@ function renderSessionList() {
 			const itemClass = ["session-item", activeClass, appSearchMatchClass, appSearchCurrentClass, summaryNoticeClass].filter(Boolean).join(" ");
 			const isOpen = session.isOpen !== false;
 			const isLocked = !isOpen;
+			const pinTitle = isPinned ? "Unpin session" : "Pin session";
 			const lockTitle = isOpen ? "Lock session" : "Unlock session";
+			const pinGlyph = "📌";
 			const lockGlyph = isOpen ? "🔓︎": "🔐︎";
 			const moreTitle = "More Actions";
 			const safeName = escapeHtml(session.name);
@@ -3461,6 +3515,9 @@ function renderSessionList() {
 					</div>
 					<div class="session-actions">
 						<div class="copilot-share-menu session-item-menu">
+							<button class="action-btn pin${isPinned ? " is-active" : ""}" type="button" data-action="toggle-pin" data-id="${session.id}" aria-label="${pinTitle}" aria-pressed="${isPinned ? "true" : "false"}" title="${pinTitle}">
+								<span class="session-menu-glyph" aria-hidden="true">${pinGlyph}</span>
+							</button>
 							<button class="action-btn lock" type="button" data-action="toggle-lock" data-id="${session.id}" aria-label="${lockTitle}" title="${lockTitle}">
 								<span class="session-menu-glyph" aria-hidden="true">${lockGlyph}</span>
 							</button>
@@ -4246,6 +4303,11 @@ sessionListEl.addEventListener("click", (event) => {
 			closeAllSessionActionMenus();
 			return;
 		}
+		if (action === "toggle-pin") {
+			toggleSessionPinned(sessionId);
+			closeAllSessionActionMenus();
+			return;
+		}
 		if (action === "rename") {
 			renameSession(sessionId);
 			closeAllSessionActionMenus();
@@ -4302,12 +4364,14 @@ sessionListEl.addEventListener("dragover", (event) => {
 		return;
 	}
 
-	event.preventDefault();
-
 	const target = event.target;
 	if (!(target instanceof HTMLElement)) {
 		clearSessionDropMarkers();
 		dragDropSessionId = null;
+		dragDropInsertAfter = false;
+		if (event.dataTransfer) {
+			event.dataTransfer.dropEffect = "none";
+		}
 		return;
 	}
 
@@ -4315,6 +4379,10 @@ sessionListEl.addEventListener("dragover", (event) => {
 	if (!(item instanceof HTMLElement)) {
 		clearSessionDropMarkers();
 		dragDropSessionId = null;
+		dragDropInsertAfter = false;
+		if (event.dataTransfer) {
+			event.dataTransfer.dropEffect = "none";
+		}
 		return;
 	}
 
@@ -4322,8 +4390,24 @@ sessionListEl.addEventListener("dragover", (event) => {
 	if (!targetSessionId || targetSessionId === draggingSessionId) {
 		clearSessionDropMarkers();
 		dragDropSessionId = null;
+		dragDropInsertAfter = false;
+		if (event.dataTransfer) {
+			event.dataTransfer.dropEffect = "none";
+		}
 		return;
 	}
+
+	if (!canMoveSessionWithinPinnedGroup(draggingSessionId, targetSessionId)) {
+		clearSessionDropMarkers();
+		dragDropSessionId = null;
+		dragDropInsertAfter = false;
+		if (event.dataTransfer) {
+			event.dataTransfer.dropEffect = "none";
+		}
+		return;
+	}
+
+	event.preventDefault();
 
 	const rect = item.getBoundingClientRect();
 	const insertAfter = event.clientY >= rect.top + rect.height / 2;
@@ -4371,6 +4455,9 @@ sessionListEl.addEventListener("dragend", () => {
 
 sessionListEl.addEventListener("keydown", (event) => {
 	if (event.key !== "Enter" && event.key !== " ") {
+		return;
+	}
+	if (event.target instanceof Element && (event.target.closest("button") || event.target.closest("[role='menuitem']"))) {
 		return;
 	}
 	const item = event.target.closest(".session-item");
