@@ -1108,7 +1108,6 @@ let suppressLongPressClickUntil = 0;
 
 const MESSAGE_CONTEXT_MENU_ITEMS = [
 	{ action: "copy", label: "Copy", glyph: "⧉" },
-	{ action: "share", label: "Share", glyph: "⤴" },
 	{ action: "favorites", label: "Favorites", glyph: "☆" },
 	{ action: "select-multiple", label: "Select Multiple", glyph: "✓" },
 	{ action: "retry", label: "Retry", glyph: "↻", role: "user" },
