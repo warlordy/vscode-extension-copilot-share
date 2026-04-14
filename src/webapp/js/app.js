@@ -1101,6 +1101,10 @@ let inputAreaResizeStartHeight = 0;
 let inputAreaBaseHeight = 0;
 let inputAreaChromeHeight = 0;
 const minDialogContentHeight = 96;
+const mobileContextMenuLongPressMs = 450;
+const mobileContextMenuMoveTolerancePx = 12;
+let pendingLongPressContextMenu = null;
+let suppressLongPressClickUntil = 0;
 
 const MESSAGE_CONTEXT_MENU_ITEMS = [
 	{ action: "copy", label: "Copy", glyph: "⧉" },
@@ -2078,6 +2082,20 @@ function toggleSessionActionMenu(triggerEl) {
 		return;
 	}
 
+	const expanded = triggerEl.getAttribute("aria-expanded") === "true";
+	if (expanded) {
+		closeAllSessionActionMenus();
+		return;
+	}
+
+	openSessionActionMenu(triggerEl);
+}
+
+function openSessionActionMenu(triggerEl) {
+	if (!(triggerEl instanceof HTMLElement)) {
+		return;
+	}
+
 	const menuBox = triggerEl.closest(".copilot-share-menu");
 	if (!(menuBox instanceof HTMLElement)) {
 		return;
@@ -2088,14 +2106,100 @@ function toggleSessionActionMenu(triggerEl) {
 		return;
 	}
 
-	const expanded = triggerEl.getAttribute("aria-expanded") === "true";
 	closeAllSessionActionMenus();
+	popupEl.hidden = false;
+	triggerEl.setAttribute("aria-expanded", "true");
+	requestMenuPopupClamp();
+}
 
-	if (!expanded) {
-		popupEl.hidden = false;
-		triggerEl.setAttribute("aria-expanded", "true");
-		requestMenuPopupClamp();
+function isTouchContextMenuPointerEvent(event) {
+	if (!isMobileDevice || !(event instanceof PointerEvent)) {
+		return false;
 	}
+
+	if (event.pointerType === "mouse") {
+		return false;
+	}
+
+	return event.button === 0;
+}
+
+function clearPendingLongPressContextMenu() {
+	if (pendingLongPressContextMenu && Number.isFinite(pendingLongPressContextMenu.timerId)) {
+		window.clearTimeout(pendingLongPressContextMenu.timerId);
+	}
+
+	pendingLongPressContextMenu = null;
+}
+
+function beginLongPressContextMenu(event, element) {
+	if (!isTouchContextMenuPointerEvent(event) || !(element instanceof HTMLElement)) {
+		return;
+	}
+
+	clearPendingLongPressContextMenu();
+	pendingLongPressContextMenu = {
+		element,
+		pointerId: event.pointerId,
+		startX: event.clientX,
+		startY: event.clientY,
+		clientX: event.clientX,
+		clientY: event.clientY,
+		timerId: window.setTimeout(() => {
+			const state = pendingLongPressContextMenu;
+			if (!state || state.pointerId !== event.pointerId || !state.element.isConnected) {
+				return;
+			}
+
+			clearPendingLongPressContextMenu();
+			suppressLongPressClickUntil = Date.now() + 500;
+			showMessageContextMenu(state.element, state.clientX, state.clientY);
+		}, mobileContextMenuLongPressMs)
+	};
+}
+
+function handleLongPressContextMenuMove(event) {
+	if (!pendingLongPressContextMenu || !(event instanceof PointerEvent)) {
+		return;
+	}
+
+	if (event.pointerId !== pendingLongPressContextMenu.pointerId) {
+		return;
+	}
+
+	pendingLongPressContextMenu.clientX = event.clientX;
+	pendingLongPressContextMenu.clientY = event.clientY;
+	const movedX = Math.abs(event.clientX - pendingLongPressContextMenu.startX);
+	const movedY = Math.abs(event.clientY - pendingLongPressContextMenu.startY);
+	if (movedX > mobileContextMenuMoveTolerancePx || movedY > mobileContextMenuMoveTolerancePx) {
+		clearPendingLongPressContextMenu();
+	}
+}
+
+function handleLongPressContextMenuEnd(event) {
+	if (!pendingLongPressContextMenu || !(event instanceof PointerEvent)) {
+		return;
+	}
+
+	if (event.pointerId !== pendingLongPressContextMenu.pointerId) {
+		return;
+	}
+
+	clearPendingLongPressContextMenu();
+}
+
+function handleMessageRowLongPressStart(event) {
+	const target = event.target;
+	if (!(target instanceof HTMLElement)) {
+		return;
+	}
+
+	const row = target.closest(".message-row[data-message-id]");
+	if (!(row instanceof HTMLElement)) {
+		return;
+	}
+
+	beginLongPressContextMenu(event, row);
 }
 
 function showSessionHoverPopup(item) {
@@ -4603,7 +4707,15 @@ messagesEl.addEventListener("contextmenu", (event) => {
 	showMessageContextMenu(row, event.clientX, event.clientY);
 });
 
+messagesEl.addEventListener("pointerdown", handleMessageRowLongPressStart);
+
 messagesEl.addEventListener("click", (event) => {
+	if (Date.now() < suppressLongPressClickUntil) {
+		event.preventDefault();
+		event.stopPropagation();
+		return;
+	}
+
 	const target = event.target;
 	if (target instanceof HTMLElement && isMessageMultiSelectMode) {
 		const bubble = target.closest(".message-row[data-message-id] .bubble");
@@ -4630,6 +4742,10 @@ messagesEl.addEventListener("click", (event) => {
 });
 
 document.addEventListener("click", (event) => {
+	if (Date.now() < suppressLongPressClickUntil) {
+		return;
+	}
+
 	const inMessageMenu = event.target instanceof Element && Boolean(event.target.closest(".message-context-menu"));
 	if (!inMessageMenu) {
 		hideMessageContextMenu();
@@ -4665,6 +4781,11 @@ if (messagesEl) {
 		}
 	});
 }
+
+window.addEventListener("pointermove", handleLongPressContextMenuMove, { passive: true });
+window.addEventListener("pointerup", handleLongPressContextMenuEnd, { passive: true });
+window.addEventListener("pointercancel", handleLongPressContextMenuEnd, { passive: true });
+window.addEventListener("blur", clearPendingLongPressContextMenu);
 
 document.addEventListener("click", async (event) => {
 	const target = event.target;
