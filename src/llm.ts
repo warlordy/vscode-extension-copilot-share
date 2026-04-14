@@ -128,6 +128,42 @@ export function clearAllSessionHistory(): number {
 	return cleared;
 }
 
+export function cloneSessionContext(
+	sourceSessionId: string,
+	targetSessionId: string
+): { historyCopied: boolean; summaryCopied: boolean } {
+	const sourceId = String(sourceSessionId || '').trim();
+	const targetId = String(targetSessionId || '').trim();
+	if (!sourceId || !targetId) {
+		throw new Error('sourceSessionId and targetSessionId are required.');
+	}
+
+	const sourceHistory = sessionHistory.get(sourceId);
+	if (sourceHistory) {
+		sessionHistory.set(
+			targetId,
+			sourceHistory.map((turn) => ({
+				role: turn.role,
+				content: turn.content
+			}))
+		);
+	} else {
+		sessionHistory.delete(targetId);
+	}
+
+	const hasSourceSummary = sessionSummaries.has(sourceId);
+	if (hasSourceSummary) {
+		sessionSummaries.set(targetId, sessionSummaries.get(sourceId) ?? '');
+	} else {
+		sessionSummaries.delete(targetId);
+	}
+
+	return {
+		historyCopied: Boolean(sourceHistory),
+		summaryCopied: hasSourceSummary
+	};
+}
+
 export async function generateChatReply(
 	sessionId: string,
 	userMessage: string,

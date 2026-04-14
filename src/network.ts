@@ -5,7 +5,7 @@ import * as os from 'os';
 import * as dgram from 'dgram';
 import * as crypto from 'crypto';
 import { promises as fs } from 'fs';
-import { clearAllSessionHistory, clearSessionHistory, generateChatReply, listCopilotChatModels } from './llm';
+import { clearAllSessionHistory, clearSessionHistory, cloneSessionContext, generateChatReply, listCopilotChatModels } from './llm';
 import {EXTENSION_ID, debugLog} from './helper';
 
 const MAX_BODY_SIZE = 1024 * 1024;
@@ -226,6 +226,11 @@ async function handleRequest(
 			return;
 		}
 
+		if (method === 'POST' && url.pathname === '/api/chat/clone-context') {
+			await handleChatCloneContextRequest(request, response);
+			return;
+		}
+
 		if (method === 'GET' && url.pathname === '/api/models') {
 			await handleModelsRequest(response);
 			return;
@@ -431,6 +436,31 @@ async function handleChatResetRequest(
 	});
 }
 
+async function handleChatCloneContextRequest(
+	request: http.IncomingMessage,
+	response: http.ServerResponse
+): Promise<void> {
+	const body = await readJsonBody(request);
+	const sourceSessionId = typeof body.sourceSessionId === 'string' ? body.sourceSessionId.trim() : '';
+	const targetSessionId = typeof body.targetSessionId === 'string' ? body.targetSessionId.trim() : '';
+
+	if (!sourceSessionId || !targetSessionId) {
+		sendJson(response, 400, {
+			error: 'sourceSessionId and targetSessionId are required.'
+		});
+		return;
+	}
+
+	const result = cloneSessionContext(sourceSessionId, targetSessionId);
+	sendJson(response, 200, {
+		cloned: true,
+		sourceSessionId,
+		targetSessionId,
+		historyCopied: result.historyCopied,
+		summaryCopied: result.summaryCopied
+	});
+}
+
 function handleServerInfoRequest(response: http.ServerResponse): void {
 	const activeAddress = webServer?.address();
 	const usedPort = activeAddress && typeof activeAddress !== 'string' ? activeAddress.port : null;
@@ -553,7 +583,7 @@ function isAuthorizedRequest(request: http.IncomingMessage): boolean {
 }
 
 function isAccessControlRequiredPath(pathname: string): boolean {
-	return pathname === '/api/chat' || pathname === '/api/chat/reset';
+	return pathname === '/api/chat' || pathname === '/api/chat/reset' || pathname === '/api/chat/clone-context';
 }
 
 function readBearerAccessCode(request: http.IncomingMessage): string {

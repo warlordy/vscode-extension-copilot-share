@@ -3345,6 +3345,58 @@ function createSession(name) {
 	saveState();
 }
 
+function generateSessionId() {
+	let nextId = "";
+	do {
+		nextId = `s_${Date.now()}_${Math.random().toString(16).slice(2, 7)}`;
+	} while (sessions.some((item) => item.id === nextId));
+	return nextId;
+}
+
+async function cloneSession(sessionId) {
+	const source = sessions.find((item) => item.id === sessionId);
+	if (!source) {
+		return;
+	}
+
+	normalizeSessionState(source);
+	const sourceIndex = sessions.findIndex((item) => item.id === source.id);
+	const cloned = typeof structuredClone === "function"
+		? structuredClone(source)
+		: JSON.parse(JSON.stringify(source));
+	const baseName = String(source.name || "Session").trim() || "Session";
+	const defaultCloneName = `${baseName}-clone`;
+	const promptedName = window.prompt("Clone Session Name", defaultCloneName);
+	if (promptedName === null) {
+		return;
+	}
+	const clonedName = promptedName.trim() || defaultCloneName;
+
+	cloned.id = generateSessionId();
+	cloned.name = clonedName;
+
+	if (sourceIndex >= 0) {
+		sessions.splice(sourceIndex + 1, 0, cloned);
+	} else {
+		sessions.unshift(cloned);
+	}
+	activeSessionId = cloned.id;
+	resetPromptHistoryNavigation();
+	renderAll();
+	saveState();
+
+	if (typeof window.cloneChatContext === "function") {
+		try {
+			await window.cloneChatContext({
+				sourceSessionId: source.id,
+				targetSessionId: cloned.id
+			});
+		} catch {
+			// Backend sync is best-effort; clone in UI remains valid even if sync fails.
+		}
+	}
+}
+
 function renameSession(sessionId) {
 	if (isSessionLocked(sessionId)) {
 		return;
@@ -3528,6 +3580,10 @@ function renderSessionList() {
 								<button class="copilot-share-menu-item action-btn rename" type="button" data-action="rename" data-id="${session.id}" role="menuitem" aria-label="Rename Session" ${isLocked ? "disabled" : ""}>
 									<span class="copilot-share-menu-item-icon session-menu-glyph" aria-hidden="true">✎</span>
 									<span class="copilot-share-menu-item-text">Rename Session</span>
+								</button>
+								<button class="copilot-share-menu-item action-btn clone" type="button" data-action="clone" data-id="${session.id}" role="menuitem" aria-label="Clone Session">
+									<span class="copilot-share-menu-item-icon session-menu-glyph" aria-hidden="true">⧉</span>
+									<span class="copilot-share-menu-item-text">Clone Session</span>
 								</button>
 								<button class="copilot-share-menu-item action-btn delete" type="button" data-action="delete" data-id="${session.id}" role="menuitem" aria-label="Delete Session" ${isLocked ? "disabled" : ""}>
 									<span class="copilot-share-menu-item-icon session-menu-glyph" aria-hidden="true">🗑</span>
@@ -4311,12 +4367,19 @@ sessionListEl.addEventListener("click", (event) => {
 		if (action === "rename") {
 			renameSession(sessionId);
 			closeAllSessionActionMenus();
+			return;
+		}
+		if (action === "clone") {
+			void cloneSession(sessionId);
+			closeAllSessionActionMenus();
+			return;
 		}
 		if (action === "delete") {
 			deleteSession(sessionId);
 			closeAllSessionActionMenus();
- 		}
-		if (action !== "rename" && action !== "delete") {
+			return;
+	 	}
+		if (action !== "rename" && action !== "clone" && action !== "delete") {
 			return;
 		}
 		return;

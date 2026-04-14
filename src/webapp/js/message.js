@@ -621,6 +621,30 @@ window.resetChatContext = async ({ sessionId, clearAll = false } = {}) => {
 	return response.json();
 };
 
+window.cloneChatContext = async ({ sourceSessionId, targetSessionId } = {}) => {
+	const normalizedSourceSessionId = String(sourceSessionId || "").trim();
+	const normalizedTargetSessionId = String(targetSessionId || "").trim();
+
+	if (!normalizedSourceSessionId || !normalizedTargetSessionId) {
+		throw new Error("sourceSessionId and targetSessionId are required.");
+	}
+
+	const response = await getApiFetch()('/api/chat/clone-context', {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({
+			sourceSessionId: normalizedSourceSessionId,
+			targetSessionId: normalizedTargetSessionId
+		})
+	});
+
+	if (!response.ok) {
+		throw new Error(`HTTP ${response.status}`);
+	}
+
+	return response.json();
+};
+
 window.summarizeSessionMessages = async ({ sessionId, summarySource, modelId } = {}) => {
 	const normalizedSessionId = String(sessionId || "").trim();
 	const normalizedSummarySource = String(summarySource || "").trim();
