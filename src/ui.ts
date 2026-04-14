@@ -80,57 +80,25 @@ function escapeHtml(value: string): string {
 		.replace(/'/g, '&#39;');
 }
 
-type PublicUrlSubMenuAction = 'copyPublicUrl' | 'openQrImage';
-
-type PublicUrlSubMenuResult = 'backToMainMenu' | 'exitMainMenu';
-
-type PublicUrlSubMenuItem = vscode.QuickPickItem & {
-	action?: PublicUrlSubMenuAction;
-};
-
-async function showPublicUrlSubMenu(publicUrl: string): Promise<PublicUrlSubMenuResult> {
+async function openPublicUrlQrImage(publicUrl: string): Promise<void> {
 	const qrImageDataUrl = await QRCode.toDataURL(publicUrl, {
 		width: 180,
 		margin: 1,
 		errorCorrectionLevel: 'M'
 	});
 
-	const items: PublicUrlSubMenuItem[] = [
-		{ label: 'Public URL', kind: vscode.QuickPickItemKind.Separator },
-		{ label: '$(copy) Copy Public URL Again', detail: publicUrl, action: 'copyPublicUrl' },
-		
-		{ label: 'QR Code', kind: vscode.QuickPickItemKind.Separator },
-		{ label: '$(device-camera) Open QR Code Image', detail: 'Open QR image in VS Code tab', action: 'openQrImage' }
-	];
+	const safePublicUrl = escapeHtml(publicUrl);
+	const safeQrImageDataUrl = escapeHtml(qrImageDataUrl);
+	const panel = vscode.window.createWebviewPanel(
+		'copilotSharePublicUrlQr',
+		'Public URL QR Code',
+		vscode.ViewColumn.Active,
+		{
+			enableScripts: false
+		}
+	);
 
-	const picked = await vscode.window.showQuickPick(items, {
-		placeHolder: 'Public URL copied successfully. Esc to main menu.',
-		matchOnDescription: true,
-		matchOnDetail: true
-	});
-
-	if (!picked?.action) {
-		return 'backToMainMenu';
-	}
-
-	switch (picked.action) {
-		case 'copyPublicUrl':
-			await vscode.env.clipboard.writeText(publicUrl);
-			void vscode.window.showInformationMessage(`Copied: ${publicUrl}`);
-			return 'backToMainMenu';
-		case 'openQrImage': {
-			const safePublicUrl = escapeHtml(publicUrl);
-			const safeQrImageDataUrl = escapeHtml(qrImageDataUrl);
-			const panel = vscode.window.createWebviewPanel(
-				'copilotSharePublicUrlQr',
-				'Public URL QR Code',
-				vscode.ViewColumn.Active,
-				{
-					enableScripts: false
-				}
-			);
-
-			panel.webview.html = `<!DOCTYPE html>
+	panel.webview.html = `<!DOCTYPE html>
 <html lang="en">
 <head>
 	<meta charset="UTF-8" />
@@ -148,7 +116,7 @@ async function showPublicUrlSubMenu(publicUrl: string): Promise<PublicUrlSubMenu
 			background: var(--vscode-editor-background);
 		}
 		.popup {
-			max-width: 420px;
+			max-width: 360px;
 			margin: 0 auto;
 			border: 1px solid var(--vscode-input-border);
 			border-radius: 12px;
@@ -197,19 +165,15 @@ async function showPublicUrlSubMenu(publicUrl: string): Promise<PublicUrlSubMenu
 <body>
 	<div class="popup">
 		<h2>Public URL Ready for Local Network (LAN) Use</h2>
-		<ul><li>Public URL: ${safePublicUrl}</li></ul>
-		<ul><li>QR Code for Easy Access:</li></ul>
+		<ul><li>Public URL copied successfully</li></ul>
+		<div class="url">${safePublicUrl}</div>
+		<ul><li>QR Code for Easy Access</li></ul>
 		<div class="qr-wrap">
 			<img src="${safeQrImageDataUrl}" alt="Public URL QR code" />
 		</div>
 	</div>
 </body>
 </html>`;
-			return 'exitMainMenu';
-		}
-		default:
-			return 'backToMainMenu';
-	}
 }
 
 export function createStatusBarUiController(dependencies: StatusBarUiDependencies): StatusBarUiController {
@@ -423,12 +387,8 @@ async function openControlMenu(
 
 				const publicUrl = latestState.networkUrls[0];
 				await vscode.env.clipboard.writeText(publicUrl);
-				void vscode.window.showInformationMessage(`Public URL Copied Successfully: ${publicUrl}`);
-				const subMenuResult = await showPublicUrlSubMenu(publicUrl);
-				if (subMenuResult === 'exitMainMenu') {
-					return;
-				}
-				break;
+				await openPublicUrlQrImage(publicUrl);
+				return;
 			}
 			case 'copyAccessCode': {
 				const accessCode = dependencies.getCurrentAccessCode();
