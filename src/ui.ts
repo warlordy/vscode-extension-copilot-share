@@ -272,14 +272,14 @@ async function openControlMenu(
 			{ label: 'Links', kind: vscode.QuickPickItemKind.Separator },
 			{ label: '$(globe) Open Local Web', action: 'open' },
 			{ label: '$(window) Copy Local URL', action: 'copyLocal' },
-			{ label: '$(globe) Open Public URL', action: 'openPublic' },
+			{ label: '$(globe) Open Public Web', action: 'openPublic' },
 			{ label: '$(multiple-windows) Copy Public URL', action: 'copyPublic' },
 
 			{ label: `Access Control`, kind: vscode.QuickPickItemKind.Separator },
 			...accessControlItems,
 
 			{ label: 'Custom', kind: vscode.QuickPickItemKind.Separator },
-			{ label: '$(paintcan) Set Status Icons', action: 'setIcons' }
+			{ label: '$(paintcan) Set Status Bar Icons', action: 'setIcons' }
 		];
 
 		const picked = await vscode.window.showQuickPick(items, {

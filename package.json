@@ -2,6 +2,10 @@
   "name": "copilot-share",
   "displayName": "copilot-share",
   "description": "This extension hosts a local http server to share copilot",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/warlordy/vscode-extention-copilot-sharing.git"
+  },
   "version": "0.0.1",
   "engines": {
     "vscode": "^1.109.0"

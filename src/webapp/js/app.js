@@ -3840,11 +3840,11 @@ function updateInputActionStates() {
 			dialogTitleSummaryBtnEl.title = "Back to Session";
 			dialogTitleSummaryBtnEl.setAttribute("aria-label", "Back to Session");
 		} else if (!hasSummary) {
-			dialogTitleSummaryBtnEl.title = "Open Session Summary";
-			dialogTitleSummaryBtnEl.setAttribute("aria-label", "Open Session Summary");
+			dialogTitleSummaryBtnEl.title = "Open Session Summary Dialog";
+			dialogTitleSummaryBtnEl.setAttribute("aria-label", "Open Session Summary Dialog");
 		} else {
-			dialogTitleSummaryBtnEl.title = "Open Session Summary";
-			dialogTitleSummaryBtnEl.setAttribute("aria-label", "Open Session Summary");
+			dialogTitleSummaryBtnEl.title = "Open Session Summary Dialog";
+			dialogTitleSummaryBtnEl.setAttribute("aria-label", "Open Session Summary Dialog");
 		}
 		syncSummaryNoticeHighlightState();
 	}
