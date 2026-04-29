@@ -5,17 +5,22 @@
 - [Framework](#framework)
   - [1. Deployment Architecture and Data Flow (Client-Host Topology)](#1-deployment-architecture-and-data-flow-client-host-topology)
   - [2. Runtime Request Sequence (Open Web -> Verify Access Code -> Chat)](#2-runtime-request-sequence-open-web---verify-access-code---chat)
-- [Operation Guidance](#operation-guidance)
-  - [1. Install Extension](#1-install-extension)
-  - [2. Host and Manage the Web Hub](#2-host-and-manage-the-web-hub)
-  - [3. Usage Example](#3-usage-example)
-    - [1. Start the Web Hub](#1-start-the-web-hub)
-    - [2. Use the Web Hub Locally](#2-use-the-web-hub-locally)
-    - [3. Share the Web Hub on a Local Network](#3-share-the-web-hub-on-a-local-network)
-    - [4. Use Copilot in the Web Hub](#4-use-copilot-in-the-web-hub)
-      - [4.1 Session Operations](#41-session-operations)
-      - [4.2 Conversation Operations](#42-conversation-operations)
-    - [5. Stop the Web Hub](#5-stop-the-web-hub)
+- [Install Extension](#install-extension)
+- [Host and Manage the Web Hub](#host-and-manage-the-web-hub)
+   - [1. Open Control Menu Dialog](#1-open-control-menu-dialog)
+   - [2. Control Menu Description](#2-control-menu-description)
+   - [3. Start the Web Hub](#3-start-the-web-hub)
+   - [4. Stop the Web Hub](#4-stop-the-web-hub)
+   - [5. Use the Web Hub](#5-use-the-web-hub)
+      - [5.1 Launch Web Hub](#51-launch-web-hub)
+      - [5.2 Global Controls](#52-global-controls)
+      - [5.3 Session List Interactions](#53-session-list-interactions)
+      - [5.4 Current Session Interactions](#54-current-session-interactions)
+- [Usage Example](#usage-example)
+   - [1. Share the Web Hub](#1-share-the-web-hub)
+   - [2. Use Copilot in the Web Hub](#2-use-copilot-in-the-web-hub)
+      - [2.1 Session Operations](#21-session-operations)
+      - [2.2 Conversation Operations](#22-conversation-operations)
 
 ## Overview
 **copilot-share** is a VS Code extension that brings Copilot from the VS Code IDE to a local web hub, delivering a streamlined user experience with reliable session operations and context management.
@@ -80,18 +85,18 @@ sequenceDiagram
   W-->>U: Render assistant output
 ```
 
-## Operation Guidance
-### 1. Install Extension
+## Install Extension
 1. Install copilot-share by clicking the VS Code extensions icon (<img src="src/doc/readme/vscode-extensions-icon.png" alt="vscode-extensions-icon" style="height: 1.2em; vertical-align: -0.15em;" />) and searching for `copilot share`.
 2. After installation completes, the status bar will show the extension icon (<img src="src/doc/readme/status-bar-icon.png" alt="status-bar-icon" style="height: 1.2em; vertical-align: -0.15em;" />).
 
-### 2. Host and Manage the Web Hub
-**1. Click the extension icon (<img src="src/doc/readme/status-bar-icon.png" alt="status-bar-icon" style="height: 1.2em; vertical-align: -0.15em;" />) in the status bar to open the control menu window then start and manage the copilot-share web hub.**
+## Host and Manage the Web Hub
 
-- Control Menu Window:
+### 1. Open Control Menu Dialog
+
+- Click the extension icon (<img src="src/doc/readme/status-bar-icon.png" alt="status-bar-icon" style="height: 1.2em; vertical-align: -0.15em;" />) in the status bar to open the control menu window.
 <img src="src/doc/readme/control-menu-window-combined.png" alt="control-menu-window" style="display: block; width: min(100%, 420px); height: auto; margin-top: 0.45rem; border: 1px solid #d0d7de; border-radius: 8px;" />
 
-**2. Below describes the purpose of each menu.**
+### 2. Control Menu Description
 
 | Menu                 | Purpose |
 |----------------------|---------|
@@ -107,58 +112,114 @@ sequenceDiagram
 | Set Access Code      | Manually set the access code.|
 | Set Status Bar Icons | Select the status bar icons for the extension.|
 
-### 3. Usage Example
-#### 1. Start the Web Hub
+### 3. Start the Web Hub
 
-1. Click `Start Sharing` in the control menu to start the web hub. 
-   - copilot-share lets you enable or disable access control for local network (LAN) usage.
+- Click `Start Sharing` in the control menu to start the web hub. 
+   - copilot-share lets you enable or disable the access control for local network (LAN) usage.
    <img src="src/doc/readme/control-menu-access-control.png" alt="control-menu-access-control" style="display: block; width: min(100%, 520px); height: auto; margin-top: 0.45rem; border: 1px solid #d0d7de; border-radius: 8px;" />
 
-#### 2. Use the Web Hub Locally
+### 4. Stop the Web Hub
+- Click `Stop Sharing` in the control menu to shut down the web hub. 
 
-##### 2.1 Launch Web Hub
+
+### 5. Use the Web Hub
+
+#### 5.1 Launch Web Hub on Host Device
 
 1. Click `Open Local Web` or `Open Public Web` in the control menu to use Copilot in a browser on your host device. 
    - Web Hub UI: 
    <img src="src/doc/readme/web-hub-ui-modules-annotation.drawio.png" alt="Web Hub UI modules overview" style="display: block; width: min(100%, 980px); height: auto; margin-top: 0.45rem; border: 1px solid #d0d7de; border-radius: 10px; background: #ffffff; box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);" />
 
-##### 2.2 Global Controls
+#### 5.2 Global Controls
 
-**1. UI Buttons**
+1. UI Buttons
    - <img src="src/doc/readme/web-ui-global-controls.drawio.png" alt="web-ui-global-controls" style="display: block; width: min(100%, 280px); height: auto; margin-top: 0.45rem; border: 1px solid #d0d7de; border-radius: 10px; background: #ffffff; box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);" />
-**2. More Actions**
+
+2. More Actions
    - <img src="src/doc/readme/web-ui-global-controls-more-action.png" alt="web-ui-global-controls-more-action" style="display: block; width: min(100%, 260px); height: auto; margin-top: 0.45rem; border: 1px solid #d0d7de; border-radius: 10px; background: #ffffff; box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);" />
 
-##### 2.3 Session List Interactions
+3. Button Purpose Description
 
-**1. UI Buttons**
+| Button               | Purpose |
+|----------------------|---------|
+| Collapse Sidebar     | Toggle the sidebar between expanded and collapsed views to focus your workspace.|
+| Create New Session   | Start a new chat session with Copilot.|
+| Search All Sessions  | Find matching text across every session in one search.|
+| More Actions         | Open the More Actions menu for additional workspace controls.|
+| Share All Sessions   | Export conversations from all sessions to individual Markdown files and download them as a single ZIP package for sharing and review.|
+| Import A Session     | Import a Markdown session file to restore a previous conversation and metadata.|
+| Export All Sessions  | Export conversations and metadata from all sessions to individual Markdown files and download them as a single ZIP package for local backup, rebuild, review and transfer.|
+| Copy Public URL      | Copy the LAN-accessible web hub URL for quick sharing to other devices.|
+| Open Public URL      | Open the LAN-accessible web hub URL in your browser.|
+
+#### 5.3 Session List Interactions
+
+1. UI Buttons
    - <img src="src/doc/readme/web-ui-session-list-item.drawio.png" alt="web-ui-session-list-item" style="display: block; width: min(100%, 300px); height: auto; margin-top: 0.45rem; border: 1px solid #d0d7de; border-radius: 10px; background: #ffffff; box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);" />
-**2. More Actions**
+2. More Actions
    - <img src="src/doc/readme/web-ui-session-list-item-more-action.png" alt="web-ui-session-list-item-more-action" style="display: block; width: min(100%, 280px); height: auto; margin-top: 0.45rem; border: 1px solid #d0d7de; border-radius: 10px; background: #ffffff; box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);" />
+3. Button Purpose Description
 
-##### 2.4 Current Session Interactions
+| Button         | Purpose |
+|----------------|---------|
+| Pin Session    | Pin/Unpin this session to the top of the session list for quick access.|
+| Lock Session   | Lock/Unlock this session to prevent accidental updates or edits.|
+| More Actions   | Open the More Actions menu for additional session-list options.|
+| Rename Session | Give this session a clearer, more meaningful name.|
+| Clone Session  | Duplicate this session with its full context for fast reuse.|
+| Delete Session | Permanently remove this session when it is no longer needed.|
 
-**1. UI Buttons**
+#### 5.4 Current Session Interactions
+
+1. UI Buttons
    - <img src="src/doc/readme/web-ui-current-session-buttons.drawio.png" alt="web-ui-current-session-buttons" style="display: block; width: min(100%, 460px); height: auto; margin-top: 0.45rem; border: 1px solid #d0d7de; border-radius: 10px; background: #ffffff; box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);" />
-**2. More Actions**
+2. More Actions
    - <img src="src/doc/readme/web-ui-current-session-buttons-more-actions.png" alt="web-ui-current-session-buttons-more-actions" style="display: block; width: min(100%, 460px); height: auto; margin-top: 0.45rem; border: 1px solid #d0d7de; border-radius: 10px; background: #ffffff; box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);" />
-**3. Session Summary Dialog**
+3. Session Summary Dialog
    - <img src="src/doc/readme/web-ui-current-session-summary-dialog.drawio.png" alt="web-ui-current-session-summary-dialog" style="display: block; width: min(100%, 400px); height: auto; margin-top: 0.45rem; border: 1px solid #d0d7de; border-radius: 10px; background: #ffffff; box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);" />
-**4. Input Area**
+4. Input Area
    - <img src="src/doc/readme/web-ui-current-session-input-area.drawio.png" alt="web-ui-current-session-input-area" style="display: block; width: min(100%, 560px); height: auto; margin-top: 0.45rem; border: 1px solid #d0d7de; border-radius: 10px; background: #ffffff; box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);" />
-**5. More Input Actions**
+5. More Input Actions
    - <img src="src/doc/readme/web-ui-current-session-input-area-more-actions.png" alt="web-ui-current-session-input-area-more-actions" style="display: block; width: min(100%, 200px); height: auto; margin-top: 0.45rem; border: 1px solid #d0d7de; border-radius: 10px; background: #ffffff; box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);" />
+6. Button Description
 
+| Button         | Purpose |
+|----------------|---------|
+| Open Session Summary Dialog | Open the Session Summary dialog to generate and manage summary results.|
+| Search Current Session | Search for matching text within the current session.|
+| Share Session   | Export the current session conversation as a Markdown file for sharing and review.|
+| Enter Full Screen | Enter or exit full-screen mode for a more focused workspace.|
+| More Actions    | Open the More Actions menu for additional session options.|
+| Copy Session    | Copy the current session conversation to the clipboard for quick sharing.|
+| Export Session  | Export the current session conversation and metadata as a Markdown file for backup, rebuild, review, or transfer.|
+| Clear Session   | Clear the current session conversation, metadata, and context.|
+| Clear Context   | Clear only the current session context while keeping messages intact.|
+| Back To Session | Close the summary dialog and return to the current session header.|
+| Summarize Session Messages | Generate a concise summary of the current session to surface key topics and critical points, removing redundant noise.|
+| Open Summary in Mini Window | Open summary results in a compact mini window.|
+| Copy Summary    | Copy summary results to the clipboard.|
+| Share Summary   | Export current summary results as a Markdown file for sharing and review.|
+| Clear Summary   | Clear the current summary results.|
+| Drag to resize input area | Drag to increase or decrease the input area height.|
+| More Input Actions | Open the More Actions menu for additional input options.|
+| Input Tips      | Show prompt-writing tips while you type.|
+| Model Picker    | Show available models and let you choose one.|
+| Polish Prompt   | Refine the original prompt so it guides Copilot more effectively.|
+| Copy Original Prompt | Copy the original user prompt.|
+| Send Prompt     | Send the current prompt to the backend.|
+| Enable Prompt Suggestions | Enable suggestions based on similar historical prompts while you type.|
 
-#### 3. Share the Web Hub on a Local Network
+## Usage Example
+
+### 1. Share the Web Hub
 
 1. Click `Copy Public URL` in the control menu to access the web hub across devices or share it with family, friends, and team members on the same LAN.
    - This action also provides a QR code image for quick access. 
 
-#### 4. Use Copilot in the Web Hub
+### 2. Use Copilot in the Web Hub
 Access the web hub to use Copilot through a session-oriented workflow.
 
-##### 4.1 Session Operations
+#### 2.1 Session Operations
 1. Easily locate sessions from the session list. 
 2. Reorder sessions by dragging with a mouse on PC, or by long-pressing and swiping on mobile. 
 3. Search messages within the current session or across all sessions. 
@@ -170,11 +231,8 @@ Access the web hub to use Copilot through a session-oriented workflow.
 9. Clear a session's conversation and context, or clear only the context, for flexible session clear. 
 10. Rebuild a session's context. 
 
-##### 4.2 Conversation Operations
+#### 2.2 Conversation Operations
 1. Right-click a message bubble for either a prompt or an agent response to open context menus for copy, share, retry, favorite, and multi-selection actions.
 2. Enable historical prompt search to quickly find and reuse similar previous prompts while typing a new one.
 3. Polish the original prompt to use LLMs more efficiently with a structured input.
 4. Select LLM models based on your needs. 
-
-#### 5. Stop the Web Hub
-1. Click `Stop Sharing` in the control menu to shut down the web hub. 
