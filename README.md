@@ -238,17 +238,24 @@ sequenceDiagram
 Access the web hub to use Copilot through a session-oriented workflow.
 
 #### 2.1 Session Operations
-1. Easily locate sessions from the session list. 
-2. Reorder sessions by dragging with a mouse on PC, or by long-pressing and swiping on mobile. 
-3. Search messages within the current session by clicking `Search Current Session` ([LINK](#current-session-ui-buttons))
-4. Search messages across all sessions by clicking `Search All Sessions` ([LINK](#global-controls-ui-buttons)). 
-5. Manage each session lifecycle and state by clicking `Create New Session`([LINK](#global-controls-ui-buttons)), `Rename Session`([LINK](#session-list-more-actions)), `Delete Session`([LINK](#session-list-more-actions)), `Pin Session`([LINK](#session-list-interactions)), and `Lock Session`([LINK](#session-list-interactions)). 
-6. Click `Export Session`([LINK](#current-session-more-actions))  to export current session (conversation and metadata) and click `Import A Session`([LINK](#global-controls-more-actions)) import it later to rebuild a session across devices. 
-7. Copy a session conversation to the clipboard by clicking `Copy Session`([LINK](#current-session-ui-buttons)), or share it as an MD file for review by clicking `Share Session`([LINK](#current-session-more-actions)).
-8. Clone a session for reuse by clicking `Clone Session`([LINK](#session-list-more-actions)). 
-9. Summarize a session to reduce chat noise and focus on key outcomes and manage the summary results by clicking `Open Session Summary Dialog`([LINK](#current-session-ui-buttons)) then continuing clicking relevant buttons in this [summary dialog](#current-session-session-summary-dialog). 
-10. Clear a session's conversation and context by clicking `Clear Session`([LINK](#current-session-more-actions)), or clear only the session context by clicking `Clear Context`([LINK](#current-session-more-actions)). 
-11. Rebuild a session's context. 
+
+| Operation      | User Interaction |
+|----------------|---------|
+|Locate Session|Easily locate sessions from the session list|
+|Reorder Session|Drag a session with a mouse on PC, or long-press and swipe on mobile|
+|Search Messages within Current Session|Click [`Search Current Session`](#current-session-ui-buttons)|
+|Search Messages Across All Sessions|Click [`Search All Sessions`](#global-controls-ui-buttons)|
+|Manage Session Lifecycle|Click [`Create New Session`](#global-controls-ui-buttons), [`Rename Session`](#session-list-more-actions), [`Delete Session`](#session-list-more-actions), [`Pin Session`](#session-list-interactions), and [`Lock Session`](#session-list-interactions)|
+|Export Current Session inlcuding conversation and metadata|Click [`Export Session`](#current-session-more-actions)|
+|Import Session for Rebuild|Click [`Import A Session`](#global-controls-more-actions)|
+|Copy Session Convsersation to Clipboard for Review|Click [`Copy Session`](#current-session-ui-buttons)|
+|Share Session Convsersation via MD file for Review|Click [`Share Session`](#current-session-more-actions)|
+|Clone Session for Reuse|Click [`Clone Session`](#session-list-more-actions)|
+|Summarize Session to Remove Chat Noise and Foucs on Key Outcomes|Click [`Open Session Summary Dialog`](#current-session-ui-buttons)|
+|Manage Session Results|Click buttons in [`Session Summary Dialog`](#current-session-session-summary-dialog)|
+|Clear Session Conversation and Context|Click [`Clear Session`](#current-session-more-actions)|
+|Clear Only Session Conversation|Click [`Clear Context`](#current-session-more-actions)|
+|Rebuild Session Context|Click|
 
 #### 2.2 Conversation Operations
 1. Right-click a message bubble for either a prompt or an agent response to open context menus for copy, share, retry, favorite, and multi-selection actions.
