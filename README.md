@@ -16,7 +16,7 @@
       - [5.2 Global Controls](#52-global-controls)
       - [5.3 Session List Interactions](#53-session-list-interactions)
       - [5.4 Current Session Interactions](#54-current-session-interactions)
-- [Usage Example](#usage-example)
+- [Usage Examples](#usage-examples)
    - [1. Share the Web Hub](#1-share-the-web-hub)
    - [2. Use Copilot in the Web Hub](#2-use-copilot-in-the-web-hub)
       - [2.1 Session Operations](#21-session-operations)
@@ -132,8 +132,12 @@ sequenceDiagram
 
 #### 5.2 Global Controls
 
+<a id="global-controls-ui-buttons"></a>
+
 1. UI Buttons
    - <img src="src/doc/readme/web-ui-global-controls.drawio.png" alt="web-ui-global-controls" style="display: block; width: min(100%, 280px); height: auto; margin-top: 0.45rem; border: 1px solid #d0d7de; border-radius: 10px; background: #ffffff; box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);" />
+
+<a id="global-controls-more-actions"></a>
 
 2. More Actions
    - <img src="src/doc/readme/web-ui-global-controls-more-action.png" alt="web-ui-global-controls-more-action" style="display: block; width: min(100%, 260px); height: auto; margin-top: 0.45rem; border: 1px solid #d0d7de; border-radius: 10px; background: #ffffff; box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);" />
@@ -154,10 +158,16 @@ sequenceDiagram
 
 #### 5.3 Session List Interactions
 
+<a id="session-list-interactions"></a>
+
 1. UI Buttons
    - <img src="src/doc/readme/web-ui-session-list-item.drawio.png" alt="web-ui-session-list-item" style="display: block; width: min(100%, 300px); height: auto; margin-top: 0.45rem; border: 1px solid #d0d7de; border-radius: 10px; background: #ffffff; box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);" />
+
+<a id="session-list-more-actions"></a>
+
 2. More Actions
    - <img src="src/doc/readme/web-ui-session-list-item-more-action.png" alt="web-ui-session-list-item-more-action" style="display: block; width: min(100%, 280px); height: auto; margin-top: 0.45rem; border: 1px solid #d0d7de; border-radius: 10px; background: #ffffff; box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);" />
+
 3. Button Purpose Description
 
 | Button         | Purpose |
@@ -171,10 +181,18 @@ sequenceDiagram
 
 #### 5.4 Current Session Interactions
 
+<a id="current-session-ui-buttons"></a>
+
 1. UI Buttons
    - <img src="src/doc/readme/web-ui-current-session-buttons.drawio.png" alt="web-ui-current-session-buttons" style="display: block; width: min(100%, 460px); height: auto; margin-top: 0.45rem; border: 1px solid #d0d7de; border-radius: 10px; background: #ffffff; box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);" />
+
+<a id="current-session-more-actions"></a>
+
 2. More Actions
    - <img src="src/doc/readme/web-ui-current-session-buttons-more-actions.png" alt="web-ui-current-session-buttons-more-actions" style="display: block; width: min(100%, 460px); height: auto; margin-top: 0.45rem; border: 1px solid #d0d7de; border-radius: 10px; background: #ffffff; box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);" />
+
+<a id="current-session-session-summary-dialog"></a>
+
 3. Session Summary Dialog
    - <img src="src/doc/readme/web-ui-current-session-summary-dialog.drawio.png" alt="web-ui-current-session-summary-dialog" style="display: block; width: min(100%, 400px); height: auto; margin-top: 0.45rem; border: 1px solid #d0d7de; border-radius: 10px; background: #ffffff; box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);" />
 4. Input Area
@@ -209,11 +227,11 @@ sequenceDiagram
 | Send Prompt     | Send the current prompt to the backend.|
 | Enable Prompt Suggestions | Enable suggestions based on similar historical prompts while you type.|
 
-## Usage Example
+## Usage Examples
 
 ### 1. Share the Web Hub
 
-1. Click `Copy Public URL` in the control menu to access the web hub across devices or share it with family, friends, and team members on the same LAN.
+1. Click `Copy Public URL` in the [control menu window](#1-open-control-menu-dialog) to access the web hub across devices or share it with family, friends, coworkers, and team members on the same LAN.
    - This action also provides a QR code image for quick access. 
 
 ### 2. Use Copilot in the Web Hub
@@ -222,14 +240,15 @@ Access the web hub to use Copilot through a session-oriented workflow.
 #### 2.1 Session Operations
 1. Easily locate sessions from the session list. 
 2. Reorder sessions by dragging with a mouse on PC, or by long-pressing and swiping on mobile. 
-3. Search messages within the current session or across all sessions. 
-4. Manage each session lifecycle and state: create, rename, delete, pin, and lock. 
-5. Export a session (conversation and metadata) and import it later to rebuild across devices. 
-6. Copy a session conversation to the clipboard, or share it as an MD file for review.
-7. Clone a session for reuse. 
-8. Summarize a session and manage the summary to reduce chat noise and focus on key outcomes. 
-9. Clear a session's conversation and context, or clear only the context, for flexible session clear. 
-10. Rebuild a session's context. 
+3. Search messages within the current session by clicking `Search Current Session` ([LINK](#current-session-ui-buttons))
+4. Search messages across all sessions by clicking `Search All Sessions` ([LINK](#global-controls-ui-buttons)). 
+5. Manage each session lifecycle and state by clicking `Create New Session`([LINK](#global-controls-ui-buttons)), `Rename Session`([LINK](#session-list-more-actions)), `Delete Session`([LINK](#session-list-more-actions)), `Pin Session`([LINK](#session-list-interactions)), and `Lock Session`([LINK](#session-list-interactions)). 
+6. Click `Export Session`([LINK](#current-session-more-actions))  to export current session (conversation and metadata) and click `Import A Session`([LINK](#global-controls-more-actions)) import it later to rebuild a session across devices. 
+7. Copy a session conversation to the clipboard by clicking `Copy Session`([LINK](#current-session-ui-buttons)), or share it as an MD file for review by clicking `Share Session`([LINK](#current-session-more-actions)).
+8. Clone a session for reuse by clicking `Clone Session`([LINK](#session-list-more-actions)). 
+9. Summarize a session to reduce chat noise and focus on key outcomes and manage the summary results by clicking `Open Session Summary Dialog`([LINK](#current-session-ui-buttons)) then continuing clicking relevant buttons in this [summary dialog](#current-session-session-summary-dialog). 
+10. Clear a session's conversation and context by clicking `Clear Session`([LINK](#current-session-more-actions)), or clear only the session context by clicking `Clear Context`([LINK](#current-session-more-actions)). 
+11. Rebuild a session's context. 
 
 #### 2.2 Conversation Operations
 1. Right-click a message bubble for either a prompt or an agent response to open context menus for copy, share, retry, favorite, and multi-selection actions.
