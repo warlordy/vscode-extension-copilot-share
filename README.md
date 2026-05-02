@@ -189,7 +189,7 @@ sequenceDiagram
 <a id="current-session-more-actions"></a>
 
 2. More Actions
-   - <img src="src/doc/readme/web-ui-current-session-buttons-more-actions.png" alt="web-ui-current-session-buttons-more-actions" style="display: block; width: min(100%, 460px); height: auto; margin-top: 0.45rem; border: 1px solid #d0d7de; border-radius: 10px; background: #ffffff; box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);" />
+   - <img src="src/doc/readme/web-ui-current-session-buttons-more-actions.png" alt="web-ui-current-session-buttons-more-actions" style="display: block; width: min(100%, 360px); height: auto; margin-top: 0.45rem; border: 1px solid #d0d7de; border-radius: 10px; background: #ffffff; box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);" />
 
 <a id="current-session-session-summary-dialog"></a>
 
@@ -199,7 +199,14 @@ sequenceDiagram
    - <img src="src/doc/readme/web-ui-current-session-input-area.drawio.png" alt="web-ui-current-session-input-area" style="display: block; width: min(100%, 560px); height: auto; margin-top: 0.45rem; border: 1px solid #d0d7de; border-radius: 10px; background: #ffffff; box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);" />
 5. More Input Actions
    - <img src="src/doc/readme/web-ui-current-session-input-area-more-actions.png" alt="web-ui-current-session-input-area-more-actions" style="display: block; width: min(100%, 200px); height: auto; margin-top: 0.45rem; border: 1px solid #d0d7de; border-radius: 10px; background: #ffffff; box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);" />
-6. Button Description
+
+6. User Prompt Context Menu
+   - <img src="src/doc/readme/web-ui-prompt-context-menu.drawio.png" alt="web-ui-current-session-input-area-more-actions" style="display: block; width: min(100%, 300px); height: auto; margin-top: 0.45rem; border: 1px solid #d0d7de; border-radius: 10px; background: #ffffff; box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);" />
+
+7. Agent Response Context Menu
+   - <img src="src/doc/readme/web-ui-agent-context-menu.drawio.png" alt="web-ui-current-session-input-area-more-actions" style="display: block; width: min(100%, 210px); height: auto; margin-top: 0.45rem; border: 1px solid #d0d7de; border-radius: 10px; background: #ffffff; box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);" />
+
+8. Button Description
 
 | Button         | Purpose |
 |----------------|---------|
@@ -226,6 +233,11 @@ sequenceDiagram
 | Copy Original Prompt | Copy the original user prompt.|
 | Send Prompt     | Send the current prompt to the backend.|
 | Enable Prompt Suggestions | Enable suggestions based on similar historical prompts while you type.|
+| Copy | Copy Markdown content of selected user prompts or agent responses.|
+| Favorite | Mark selected user prompts or agent responses as favorites.|
+| Select Multiple | Select multiple user prompts or agent responses to perform `Copy`, `Favorite`, and `Delete` actions in batch. |
+| Retry | Resend the selected user prompt to generate a new agent response. |
+| Delete | Delete selected user prompts or agent responses.|
 
 ## Usage Examples
 
