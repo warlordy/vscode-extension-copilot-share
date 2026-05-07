@@ -1,0 +1,8 @@
+# Compressed image formats: treat as binary and skip delta compression.
+# This avoids unnecessary CPU work during pack/gc for files that don't delta well.
+*.png binary -delta
+*.jpg binary -delta
+*.jpeg binary -delta
+*.gif binary -delta
+*.webp binary -delta
+*.ico binary -delta
