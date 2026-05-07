@@ -645,6 +645,37 @@ window.cloneChatContext = async ({ sourceSessionId, targetSessionId } = {}) => {
 	return response.json();
 };
 
+window.rebuildChatContext = async ({ sessionId, turns } = {}) => {
+	const normalizedSessionId = String(sessionId || "").trim();
+	const normalizedTurns = Array.isArray(turns)
+		? turns
+			.map((turn) => ({
+				role: turn?.role,
+				content: String(turn?.content ?? "")
+			}))
+			.filter((turn) => (turn.role === "user" || turn.role === "assistant") && turn.content.trim().length > 0)
+		: [];
+
+	if (!normalizedSessionId) {
+		throw new Error("sessionId is required.");
+	}
+
+	const response = await getApiFetch()('/api/chat/rebuild-context', {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({
+			sessionId: normalizedSessionId,
+			turns: normalizedTurns
+		})
+	});
+
+	if (!response.ok) {
+		throw new Error(`HTTP ${response.status}`);
+	}
+
+	return response.json();
+};
+
 window.summarizeSessionMessages = async ({ sessionId, summarySource, modelId } = {}) => {
 	const normalizedSessionId = String(sessionId || "").trim();
 	const normalizedSummarySource = String(summarySource || "").trim();

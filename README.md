@@ -284,7 +284,7 @@ Access the web hub to use Copilot through a session-oriented workflow.
 |Manage Session Results|Click buttons in [`Session Summary Dialog`](#current-session-session-summary-dialog)|
 |Clear Session Conversation and Context|Click [`Clear Session`](#current-session-more-actions)|
 |Clear Only Session Context|Click [`Clear Context`](#current-session-more-actions)|
-|Rebuild Session Context|Todo|
+|Rebuild Session Context|Click [`Rebuild Context`](#current-session-more-actions) to rebuild backend context from all current session messages while keeping the visible conversation unchanged.|
 
 ### 2. Conversation Operations
 

@@ -1029,6 +1029,7 @@ const exportAllSessionBtnEl = document.getElementById("exportAllSessionBtn");
 const shareAllSessionRawBtnEl = document.getElementById("shareAllSessionRawBtn");
 const clearSessionHistoryBtnEl = document.getElementById("clearSessionHistoryBtn");
 const resetContextBtnEl = document.getElementById("resetContextBtn");
+const rebuildContextBtnEl = document.getElementById("rebuildContextBtn");
 const dialogHeaderCopyBtnEl = document.getElementById("dialogHeaderCopyBtn");
 const dialogHeaderShareBtnEl = document.getElementById("dialogHeaderShareBtn");
 const dialogHeaderFullscreenBtnEl = document.getElementById("dialogHeaderFullscreenBtn");
@@ -3857,6 +3858,9 @@ function updateInputActionStates() {
 	if (resetContextBtnEl) {
 		resetContextBtnEl.disabled = !hasActiveSession || isLocked;
 	}
+	if (rebuildContextBtnEl) {
+		rebuildContextBtnEl.disabled = !hasActiveSession || isLocked;
+	}
 	if (clearSessionHistoryBtnEl) {
 		clearSessionHistoryBtnEl.disabled = !hasActiveSession || isLocked;
 	}
@@ -4249,6 +4253,75 @@ async function resetActiveSessionContext() {
 		       resetContextBtnEl.innerHTML = originalHTML;
 		       resetContextBtnEl.disabled = !getActiveSession();
 	       }
+}
+
+const REBUILD_CONTEXT_MAX_TURNS = 16;
+
+function buildSessionTurnsForContextRebuild(session) {
+	if (!session || !Array.isArray(session.messages)) {
+		return [];
+	}
+
+	const turns = session.messages
+		.map((message) => {
+			const role = message?.role === "agent" ? "assistant" : message?.role === "user" ? "user" : "";
+			const content = String(message?.text ?? "");
+			if (!role || !content.trim()) {
+				return null;
+			}
+			return { role, content };
+		})
+		.filter((turn) => Boolean(turn));
+
+	if (turns.length <= REBUILD_CONTEXT_MAX_TURNS) {
+		return turns;
+	}
+
+	return turns.slice(turns.length - REBUILD_CONTEXT_MAX_TURNS);
+}
+
+async function rebuildActiveSessionContext() {
+	const active = getActiveSession();
+	if (!active || !rebuildContextBtnEl) {
+		return;
+	}
+	if (isActiveSessionLocked()) {
+		return;
+	}
+
+	if (typeof window.rebuildChatContext !== "function") {
+		console.warn("Rebuild context API is not available.");
+		return;
+	}
+
+	const turns = buildSessionTurnsForContextRebuild(active);
+	if (!turns.length) {
+		window.alert("No messages are available to rebuild context.");
+		return;
+	}
+
+	const originalHTML = rebuildContextBtnEl.innerHTML;
+	rebuildContextBtnEl.disabled = true;
+	rebuildContextBtnEl.innerHTML = '<span class="copilot-share-menu-item-icon icon-build" aria-hidden="true"></span><span class="copilot-share-menu-item-text">Rebuilding...</span>';
+
+	try {
+		await window.rebuildChatContext({
+			sessionId: active.id,
+			turns
+		});
+		rebuildContextBtnEl.innerHTML = '<span class="copilot-share-menu-item-icon icon-build" aria-hidden="true"></span><span class="copilot-share-menu-item-text">Rebuild Done</span>';
+		window.setTimeout(() => {
+			if (rebuildContextBtnEl) {
+				rebuildContextBtnEl.innerHTML = originalHTML;
+				rebuildContextBtnEl.disabled = !getActiveSession();
+			}
+		}, 1200);
+	} catch (error) {
+		const message = error instanceof Error ? error.message : String(error);
+		console.error(`Rebuild context failed: ${message}`);
+		rebuildContextBtnEl.innerHTML = originalHTML;
+		rebuildContextBtnEl.disabled = !getActiveSession();
+	}
 }
 
 async function clearActiveSessionHistory() {
@@ -5154,6 +5227,31 @@ if (dialogHeaderMenuBtnEl && dialogHeaderMenuEl) {
 				return;
 			}
 			void resetActiveSessionContext();
+			if (dialogHeaderMenuEl) {
+				dialogHeaderMenuEl.hidden = true;
+				if (dialogHeaderMenuBtnEl) {
+					dialogHeaderMenuBtnEl.setAttribute("aria-expanded", "false");
+				}
+			}
+		});
+	}
+
+	if (rebuildContextBtnEl) {
+		rebuildContextBtnEl.addEventListener("click", () => {
+			if (isActiveSessionLocked()) {
+				return;
+			}
+			const ok = window.confirm("Rebuild backend context from all current session messages?");
+			if (!ok) {
+				if (dialogHeaderMenuEl) {
+					dialogHeaderMenuEl.hidden = true;
+					if (dialogHeaderMenuBtnEl) {
+						dialogHeaderMenuBtnEl.setAttribute("aria-expanded", "false");
+					}
+				}
+				return;
+			}
+			void rebuildActiveSessionContext();
 			if (dialogHeaderMenuEl) {
 				dialogHeaderMenuEl.hidden = true;
 				if (dialogHeaderMenuBtnEl) {

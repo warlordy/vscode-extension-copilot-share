@@ -1,6 +1,6 @@
 # Chat Context Building Mechanism
 
-This document summarizes how `src/llm.ts` builds chat context, controls token usage, and preserves long-running session memory.
+This document summarizes how `src/llm.ts` builds chat context, controls token usage, preserves long-running session memory, and handles session context rebuild requests.
 
 ## 1) Session Memory Model
 
@@ -15,6 +15,16 @@ Memory lifecycle:
 
 - `clearSessionHistory(sessionId)` deletes both raw history and summary for that session.
 - `clearAllSessionHistory()` clears all sessions (history + summaries).
+- `rebuildSessionContext(sessionId, turns)` replaces one session's context by:
+	- clearing existing session history and summary,
+	- normalizing incoming turns,
+	- trimming to the session max-history cap,
+	- writing only the newest retained turns.
+
+Shared max-history cap:
+
+- `SESSION_HISTORY_MAX_ITEMS = HISTORY_TURNS_TO_KEEP * 2` (currently `16` messages).
+- Both `appendTurn(...)` and `rebuildSessionContext(...)` use the same trim logic, so chat growth and rebuild writes follow identical retention behavior.
 
 ## 2) Request-Time Context Assembly
 
@@ -89,7 +99,7 @@ After each successful reply, flow is:
 
 Compaction trigger conditions:
 
-- History length exceeds recent hard cap (`HISTORY_TURNS_TO_KEEP * 2`, currently 16 messages), and
+- History length exceeds recent hard cap (`SESSION_HISTORY_MAX_ITEMS`, currently 16 messages), and
 - Estimated history tokens exceed `70%` of context budget.
 
 When triggered:
@@ -107,7 +117,40 @@ Failure behavior:
 
 - If summary generation fails or returns empty, previous summary is kept and no destructive memory loss occurs.
 
-## 7) Practical Behavior Over Time
+## 7) Session Context Rebuild Flow
+
+Rebuild context is implemented as a dedicated API path and mirrors the same retention limits used by normal chat appends.
+
+Backend request path:
+
+- `POST /api/chat/rebuild-context` in `src/network.ts`.
+- Access control: same as other chat context APIs; bearer `Authorization` with access code is required when access control is enabled.
+
+Backend handler behavior:
+
+1. Validate `sessionId`.
+2. Normalize/filter request `turns` to valid `{ role: 'user' | 'assistant', content }` entries.
+3. Call `rebuildSessionContext(sessionId, turns)`.
+4. Return `{ rebuilt, sessionId, turnCount }`.
+
+`rebuildSessionContext(...)` behavior in `src/llm.ts`:
+
+1. Validate `sessionId`.
+2. Clear existing history + summary for that session.
+3. Normalize/filter turns.
+4. Trim to `SESSION_HISTORY_MAX_ITEMS`.
+5. Persist retained turns to `sessionHistory`.
+
+Failure behavior:
+
+- If rebuild throws, request handling falls back to top-level server error handling and returns HTTP 500 with an error payload.
+
+Frontend payload optimization:
+
+- Web client rebuild action (`src/webapp/js/app.js`) does not send all visible messages.
+- It maps messages to turns and sends only the latest `REBUILD_CONTEXT_MAX_TURNS` (currently `16`) to match backend retention behavior and reduce request body size.
+
+## 8) Practical Behavior Over Time
 
 - Short chats: mostly raw turns, little/no summarization.
 - Long chats: old turns are progressively compressed into summary memory.
@@ -119,7 +162,7 @@ Failure behavior:
 
 This balances continuity, token safety, and response quality under varying model context limits.
 
-## 8) Runtime Sequence (Simplified)
+## 9) Runtime Sequence (Simplified)
 
 ```mermaid
 sequenceDiagram
@@ -151,13 +194,17 @@ sequenceDiagram
 
 Legend: token-budget-sensitive steps are context assembly (`buildMessagesForSession` / history selection) and compaction trigger evaluation (`compactSessionMemoryIfNeeded`).
 
-## 9) Tuning Knobs
+## 10) Tuning Knobs
 
 The following constants in `src/llm.ts` are the main behavior levers:
 
 - `HISTORY_TURNS_TO_KEEP` (default: `8`)
     - Higher: keeps more raw recency before hard trimming.
     - Lower: reduces memory size/latency risk but may lose nearby context.
+
+- `SESSION_HISTORY_MAX_ITEMS` (derived default: `16` messages)
+	- Shared hard cap used by both normal chat append and context rebuild writes.
+	- Keeps behavior consistent across chat growth and manual context rebuild operations.
 
 - `RECENT_TURNS_TO_KEEP_AFTER_SUMMARY` (default: `3` turns = `6` messages)
     - Higher: stronger short-term continuity after compaction.
@@ -181,6 +228,10 @@ The following constants in `src/llm.ts` are the main behavior levers:
 - `TOKEN_ESTIMATE_CHARS_PER_TOKEN` (default: `4`) and `MESSAGE_TOKEN_OVERHEAD` (default: `8`)
     - Control heuristic estimation sensitivity.
     - If estimates are too optimistic/pessimistic, adjust these first.
+
+- Frontend rebuild payload cap: `REBUILD_CONTEXT_MAX_TURNS` in `src/webapp/js/app.js` (default: `16`)
+	- Limits rebuild request payload size.
+	- Should stay aligned with backend `SESSION_HISTORY_MAX_ITEMS` for predictable behavior.
 
 Suggested tuning order:
 

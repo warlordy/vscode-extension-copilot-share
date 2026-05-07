@@ -1,3 +1,6 @@
+.copilot-share-menu-item-icon.icon-build {
+	background-image: url("../icons/build.svg");
+}
 /* Underline for the 'ab' whole-word match button, mimicking VS Code */
 .search-ab-underline {
 	text-decoration: underline;

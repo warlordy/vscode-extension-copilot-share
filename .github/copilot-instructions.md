@@ -67,13 +67,14 @@ Backend endpoints in `src/network.ts`:
 - `POST /api/chat` (supports normal + stream mode)
 - `POST /api/chat/reset`
 - `POST /api/chat/clone-context`
+- `POST /api/chat/rebuild-context`
 - `GET /api/models`
 - `GET /api/server-info`
 
 Access control behavior:
 
 - When access control is enabled, protected APIs require `Authorization: Bearer <access-code>`.
-- Protected paths: `/api/chat`, `/api/chat/reset`, `/api/chat/clone-context`.
+- Protected paths: `/api/chat`, `/api/chat/reset`, `/api/chat/clone-context`, `/api/chat/rebuild-context`.
 - Use terminology `access code` (not `token`) in UX/docs unless protocol semantics explicitly require token wording.
 
 ## Stable Invariants
@@ -141,6 +142,7 @@ For code reviews in this repo, prioritize:
 - `src/ui.ts` - status bar UI and control menu.
 - `src/network.ts` - server lifecycle, routing, auth, static serving.
 - `src/llm.ts` - model selection, history, summarization/polish modes.
+- `src/doc/context-build.md` - detailed session context lifecycle, token budgeting, compaction, and rebuild behavior reference.
 - `src/webapp/index.html` - app shell.
 - `src/webapp/js/app.js` - chat/session UI logic.
 - `src/webapp/js/message.js` - fetch/stream model bridge.

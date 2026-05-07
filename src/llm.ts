@@ -4,6 +4,7 @@ import {EXTENSION_ID, debugLog} from './helper';
 const SYSTEM_PROMPT =
 	'You are a concise and helpful Copilot assistant. Answer clearly, stay on-topic, and use the conversation history to keep context.';
 const HISTORY_TURNS_TO_KEEP = 8;
+const SESSION_HISTORY_MAX_ITEMS = HISTORY_TURNS_TO_KEEP * 2;
 const RECENT_TURNS_TO_KEEP_AFTER_SUMMARY = 3;
 const TOKEN_ESTIMATE_CHARS_PER_TOKEN = 4;
 const MESSAGE_TOKEN_OVERHEAD = 8;
@@ -68,6 +69,11 @@ export type ChatModelInfo = {
 type MessageRole = 'user' | 'assistant';
 
 type ConversationTurn = {
+	role: MessageRole;
+	content: string;
+};
+
+export type RebuildSessionContextTurn = {
 	role: MessageRole;
 	content: string;
 };
@@ -161,6 +167,41 @@ export function cloneSessionContext(
 	return {
 		historyCopied: Boolean(sourceHistory),
 		summaryCopied: hasSourceSummary
+	};
+}
+
+export function rebuildSessionContext(
+	sessionId: string,
+	turns: RebuildSessionContextTurn[]
+): { rebuilt: boolean; turnCount: number } {
+	const normalizedSessionId = String(sessionId || '').trim();
+	if (!normalizedSessionId) {
+		throw new Error('sessionId is required.');
+	}
+	
+	debugLog(`rebuild session context, enter, session id:${normalizedSessionId}, history length:${(sessionHistory.get(normalizedSessionId)?.length) || -1}`);
+
+	clearSessionHistory(normalizedSessionId);
+
+	const normalizedTurns = Array.isArray(turns)
+		? turns
+			.map((turn) => ({
+				role: turn.role,
+				content: String(turn.content ?? '')
+			}))
+			.filter((turn) => (turn.role === 'user' || turn.role === 'assistant') && turn.content.trim().length > 0)
+		: [];
+	const trimmedTurns = trimSessionHistoryToMaxItems(normalizedTurns);
+
+	if (trimmedTurns.length > 0) {
+		sessionHistory.set(normalizedSessionId, trimmedTurns);
+	}
+
+	debugLog(`rebuild session context, exit, session id:${normalizedSessionId}, history length:${(sessionHistory.get(normalizedSessionId)?.length) || -1}`);
+
+	return {
+		rebuilt: true,
+		turnCount: trimmedTurns.length
 	};
 }
 
@@ -269,13 +310,16 @@ function buildPromptPolishMessages(userMessage: string): vscode.LanguageModelCha
 function appendTurn(sessionId: string, role: MessageRole, content: string): void {
 	const history = sessionHistory.get(sessionId) ?? [];
 	history.push({ role, content });
+	sessionHistory.set(sessionId, trimSessionHistoryToMaxItems(history));
+}
 
-	const maxItems = HISTORY_TURNS_TO_KEEP * 2;
-	if (history.length > maxItems) {
-		history.splice(0, history.length - maxItems);
+
+function trimSessionHistoryToMaxItems(turns: ConversationTurn[]): ConversationTurn[] {
+	if (turns.length <= SESSION_HISTORY_MAX_ITEMS) {
+		return turns;
 	}
 
-	sessionHistory.set(sessionId, history);
+	return turns.slice(turns.length - SESSION_HISTORY_MAX_ITEMS);
 }
 
 async function selectChatModel(requestedModelId?: string): Promise<vscode.LanguageModelChat> {
@@ -314,7 +358,7 @@ async function compactSessionMemoryIfNeeded(
 	model: vscode.LanguageModelChat
 ): Promise<void> {
 	const history = sessionHistory.get(sessionId) ?? [];
-	if (history.length <= HISTORY_TURNS_TO_KEEP * 2) {
+	if (history.length <= SESSION_HISTORY_MAX_ITEMS) {
 		return;
 	}
 

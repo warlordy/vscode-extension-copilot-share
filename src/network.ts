@@ -5,7 +5,14 @@ import * as os from 'os';
 import * as dgram from 'dgram';
 import * as crypto from 'crypto';
 import { promises as fs } from 'fs';
-import { clearAllSessionHistory, clearSessionHistory, cloneSessionContext, generateChatReply, listCopilotChatModels } from './llm';
+import {
+	clearAllSessionHistory,
+	clearSessionHistory,
+	cloneSessionContext,
+	generateChatReply,
+	listCopilotChatModels,
+	rebuildSessionContext
+} from './llm';
 import {EXTENSION_ID, debugLog} from './helper';
 
 const MAX_BODY_SIZE = 1024 * 1024;
@@ -228,6 +235,11 @@ async function handleRequest(
 
 		if (method === 'POST' && url.pathname === '/api/chat/clone-context') {
 			await handleChatCloneContextRequest(request, response);
+			return;
+		}
+
+		if (method === 'POST' && url.pathname === '/api/chat/rebuild-context') {
+			await handleChatRebuildContextRequest(request, response);
 			return;
 		}
 
@@ -461,6 +473,46 @@ async function handleChatCloneContextRequest(
 	});
 }
 
+async function handleChatRebuildContextRequest(
+	request: http.IncomingMessage,
+	response: http.ServerResponse
+): Promise<void> {
+	const body = await readJsonBody(request);
+	const sessionId = typeof body.sessionId === 'string' ? body.sessionId.trim() : '';
+	const turnsInput = Array.isArray(body.turns) ? body.turns : [];
+
+	if (!sessionId) {
+		sendJson(response, 400, {
+			error: 'sessionId is required.'
+		});
+		return;
+	}
+
+	const turns = turnsInput.flatMap((turn): Array<{ role: 'user' | 'assistant'; content: string }> => {
+		if (!turn || typeof turn !== 'object') {
+			return [];
+		}
+
+		const roleRaw = (turn as { role?: unknown }).role;
+		const contentRaw = (turn as { content?: unknown }).content;
+		const role = roleRaw === 'assistant' || roleRaw === 'user' ? roleRaw : '';
+		const content = typeof contentRaw === 'string' ? contentRaw : '';
+
+		if (!role || !content.trim()) {
+			return [];
+		}
+
+		return [{ role, content }];
+	});
+
+	const result = rebuildSessionContext(sessionId, turns);
+	sendJson(response, 200, {
+		rebuilt: result.rebuilt,
+		sessionId,
+		turnCount: result.turnCount
+	});
+}
+
 function handleServerInfoRequest(response: http.ServerResponse): void {
 	const activeAddress = webServer?.address();
 	const usedPort = activeAddress && typeof activeAddress !== 'string' ? activeAddress.port : null;
@@ -583,7 +635,10 @@ function isAuthorizedRequest(request: http.IncomingMessage): boolean {
 }
 
 function isAccessControlRequiredPath(pathname: string): boolean {
-	return pathname === '/api/chat' || pathname === '/api/chat/reset' || pathname === '/api/chat/clone-context';
+	return pathname === '/api/chat'
+		|| pathname === '/api/chat/reset'
+		|| pathname === '/api/chat/clone-context'
+		|| pathname === '/api/chat/rebuild-context';
 }
 
 function readBearerAccessCode(request: http.IncomingMessage): string {
