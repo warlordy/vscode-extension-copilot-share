@@ -2366,7 +2366,10 @@ function resolveAgentMessageModelMetadata(message) {
 
 function buildSessionMarkdown(session) {
 	const model = resolveModelMetadata(session);
-	const summaryMarkdown = getSessionSummaryMarkdown(session);
+	const summaryMarkdown = syncSessionSummaryMetadata(getSessionSummaryMarkdown(session), {
+		sessionName: session?.name,
+		sessionId: session?.id
+	});
 	const lines = [];
 	lines.push(`# ${String(session.name || "Session")}`);
 	lines.push("");
@@ -2563,8 +2566,26 @@ function parseSessionTimestamp(value) {
 	return Number.isFinite(timestamp) ? timestamp : Date.now();
 }
 
-function parseSessionMetadataFromMarkdown(markdown) {
+function getSessionMetadataSectionLines(markdown) {
 	const lines = String(markdown || "").replace(/\r\n/g, "\n").split("\n");
+	const metadataHeadingIndex = lines.findIndex((line) => /^(##)\s+.*Session Metadata\s*$/.test(String(line || "").trim()));
+	if (metadataHeadingIndex < 0) {
+		return lines;
+	}
+
+	let metadataSectionEnd = lines.length;
+	for (let index = metadataHeadingIndex + 1; index < lines.length; index += 1) {
+		if (/^(##)\s+/.test(String(lines[index] || "").trim())) {
+			metadataSectionEnd = index;
+			break;
+		}
+	}
+
+	return lines.slice(metadataHeadingIndex + 1, metadataSectionEnd);
+}
+
+function parseSessionMetadataFromMarkdown(markdown) {
+	const lines = getSessionMetadataSectionLines(markdown);
 	const metadata = {
 		sessionName: "",
 		sessionId: "",
@@ -2585,16 +2606,16 @@ function parseSessionMetadataFromMarkdown(markdown) {
 
 		const key = String(pairMatch[1] || "").trim().toLowerCase();
 		const value = String(pairMatch[2] || "").trim();
-		if (key === "session name") {
+		if (key === "session name" && !metadata.sessionName) {
 			metadata.sessionName = value;
 		}
-		if (key === "session id") {
+		if (key === "session id" && !metadata.sessionId) {
 			metadata.sessionId = value;
 		}
-		if (key === "current model") {
+		if (key === "current model" && !metadata.currentModel) {
 			metadata.currentModel = value;
 		}
-		if (key === "current model id") {
+		if (key === "current model id" && !metadata.currentModelId) {
 			metadata.currentModelId = value;
 		}
 	}
@@ -2727,6 +2748,50 @@ function parseSessionSummaryFromMarkdown(markdown) {
 	return section;
 }
 
+function syncSessionSummaryMetadata(summaryMarkdown, { sessionName = "Session", sessionId = "" } = {}) {
+	const normalized = String(summaryMarkdown || "").replace(/\r\n/g, "\n").trim();
+	if (!normalized) {
+		return "";
+	}
+
+	const lines = normalized.split("\n");
+	const summaryHeadingIndex = lines.findIndex((line) => /^(##)\s+.*Session Summary\s*$/.test(String(line || "").trim()));
+	if (summaryHeadingIndex < 0) {
+		return normalized;
+	}
+
+	let summaryEndIndex = lines.length;
+	for (let index = summaryHeadingIndex + 1; index < lines.length; index += 1) {
+		if (/^(##)\s+/.test(String(lines[index] || "").trim())) {
+			summaryEndIndex = index;
+			break;
+		}
+	}
+
+	const nextSessionNameLine = `- Session Name: ${String(sessionName || "Session")}`;
+	const nextSessionIdLine = `- Session ID: ${String(sessionId || "") || "unknown"}`;
+	let hasChanged = false;
+
+	for (let index = summaryHeadingIndex + 1; index < summaryEndIndex; index += 1) {
+		const line = String(lines[index] || "").trim();
+		if (/^\-\s*Session Name\s*:/i.test(line) && lines[index] !== nextSessionNameLine) {
+			lines[index] = nextSessionNameLine;
+			hasChanged = true;
+			continue;
+		}
+		if (/^\-\s*Session ID\s*:/i.test(line) && lines[index] !== nextSessionIdLine) {
+			lines[index] = nextSessionIdLine;
+			hasChanged = true;
+		}
+	}
+
+	if (!hasChanged) {
+		return normalized;
+	}
+
+	return lines.join("\n").trim();
+}
+
 function parseSessionFromMarkdown(markdown) {
 	const metadata = parseSessionMetadataFromMarkdown(markdown);
 	const missingFields = [];
@@ -2753,7 +2818,10 @@ function parseSessionFromMarkdown(markdown) {
 		id: metadata.sessionId,
 		name: metadata.sessionName,
 		modelId: metadata.currentModelId,
-		summaryMarkdown: parsedSummary,
+		summaryMarkdown: syncSessionSummaryMetadata(parsedSummary, {
+			sessionName: metadata.sessionName,
+			sessionId: metadata.sessionId
+		}),
 		messages: parsedMessages
 	};
 }
@@ -3617,6 +3685,10 @@ function renameSession(sessionId) {
 		return;
 	}
 	target.name = trimmed;
+	target.summaryMarkdown = syncSessionSummaryMetadata(target.summaryMarkdown, {
+		sessionName: target.name,
+		sessionId: target.id
+	});
 	renderAll({ preserveMessageScroll: true });
 	saveState();
 }
