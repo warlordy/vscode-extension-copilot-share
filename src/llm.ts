@@ -87,6 +87,8 @@ type GenerateChatReplyOptions = {
 
 const sessionHistory = new Map<string, ConversationTurn[]>();
 const sessionSummaries = new Map<string, string>();
+const sessionWorkTails = new Map<string, Promise<void>>();
+let globalContextVersion = 0;
 
 export function getLLMStates(): any {
 	return { chatHistory: sessionHistory, chatSummaries: sessionSummaries };
@@ -121,88 +123,96 @@ export async function listCopilotChatModels(): Promise<ChatModelInfo[]> {
 	return infos;
 }
 
-export function clearSessionHistory(sessionId: string): boolean {
-	const historyDeleted = sessionHistory.delete(sessionId);
-	const summaryDeleted = sessionSummaries.delete(sessionId);
-	return historyDeleted || summaryDeleted;
+export async function clearSessionHistory(sessionId: string): Promise<boolean> {
+	const normalizedSessionId = String(sessionId || '').trim();
+	if (!normalizedSessionId) {
+		return false;
+	}
+
+	return enqueueSessionTask(normalizedSessionId, () => clearSessionHistoryCore(normalizedSessionId));
 }
 
 export function clearAllSessionHistory(): number {
 	const cleared = sessionHistory.size;
 	sessionHistory.clear();
 	sessionSummaries.clear();
+	globalContextVersion += 1;
 	return cleared;
 }
 
-export function cloneSessionContext(
+export async function cloneSessionContext(
 	sourceSessionId: string,
 	targetSessionId: string
-): { historyCopied: boolean; summaryCopied: boolean } {
+): Promise<{ historyCopied: boolean; summaryCopied: boolean }> {
 	const sourceId = String(sourceSessionId || '').trim();
 	const targetId = String(targetSessionId || '').trim();
 	if (!sourceId || !targetId) {
 		throw new Error('sourceSessionId and targetSessionId are required.');
 	}
 
-	const sourceHistory = sessionHistory.get(sourceId);
-	if (sourceHistory) {
-		sessionHistory.set(
-			targetId,
-			sourceHistory.map((turn) => ({
-				role: turn.role,
-				content: turn.content
-			}))
-		);
-	} else {
-		sessionHistory.delete(targetId);
-	}
+	return enqueueWithSessionLocks([sourceId, targetId], () => {
+		const sourceHistory = sessionHistory.get(sourceId);
+		if (sourceHistory) {
+			sessionHistory.set(
+				targetId,
+				sourceHistory.map((turn) => ({
+					role: turn.role,
+					content: turn.content
+				}))
+			);
+		} else {
+			sessionHistory.delete(targetId);
+		}
 
-	const hasSourceSummary = sessionSummaries.has(sourceId);
-	if (hasSourceSummary) {
-		sessionSummaries.set(targetId, sessionSummaries.get(sourceId) ?? '');
-	} else {
-		sessionSummaries.delete(targetId);
-	}
+		const hasSourceSummary = sessionSummaries.has(sourceId);
+		if (hasSourceSummary) {
+			sessionSummaries.set(targetId, sessionSummaries.get(sourceId) ?? '');
+		} else {
+			sessionSummaries.delete(targetId);
+		}
 
-	return {
-		historyCopied: Boolean(sourceHistory),
-		summaryCopied: hasSourceSummary
-	};
+		return {
+			historyCopied: Boolean(sourceHistory),
+			summaryCopied: hasSourceSummary
+		};
+	});
 }
 
-export function rebuildSessionContext(
+export async function rebuildSessionContext(
 	sessionId: string,
 	turns: RebuildSessionContextTurn[]
-): { rebuilt: boolean; turnCount: number } {
+): Promise<{ rebuilt: boolean; turnCount: number }> {
 	const normalizedSessionId = String(sessionId || '').trim();
 	if (!normalizedSessionId) {
 		throw new Error('sessionId is required.');
 	}
-	
-	debugLog(`rebuild session context, enter, session id:${normalizedSessionId}, history length:${(sessionHistory.get(normalizedSessionId)?.length) || -1}`);
 
-	clearSessionHistory(normalizedSessionId);
+	return enqueueSessionTask(normalizedSessionId, () => {
+		debugLog(`rebuild session context, enter, session id:${normalizedSessionId}, history length:${(sessionHistory.get(normalizedSessionId)?.length) || -1}`);
 
-	const normalizedTurns = Array.isArray(turns)
-		? turns
-			.map((turn) => ({
-				role: turn.role,
-				content: String(turn.content ?? '')
-			}))
-			.filter((turn) => (turn.role === 'user' || turn.role === 'assistant') && turn.content.trim().length > 0)
-		: [];
-	const trimmedTurns = trimSessionHistoryToMaxItems(normalizedTurns);
+		clearSessionHistoryCore(normalizedSessionId);
 
-	if (trimmedTurns.length > 0) {
-		sessionHistory.set(normalizedSessionId, trimmedTurns);
-	}
+		const normalizedTurns = Array.isArray(turns)
+			? turns
+				.map((turn) => ({
+					role: turn.role,
+					content: String(turn.content ?? '')
+				}))
+				.filter((turn) => (turn.role === 'user' || turn.role === 'assistant') && turn.content.trim().length > 0)
+			: [];
+		const trimmedTurns = trimSessionHistoryToMaxItems(normalizedTurns);
 
-	debugLog(`rebuild session context, exit, session id:${normalizedSessionId}, history length:${(sessionHistory.get(normalizedSessionId)?.length) || -1}`);
+		if (trimmedTurns.length > 0) {
+			sessionHistory.set(normalizedSessionId, trimmedTurns);
+		}
 
-	return {
-		rebuilt: true,
-		turnCount: trimmedTurns.length
-	};
+		debugLog(`rebuild session context, exit, session id:${normalizedSessionId}, history length:${(sessionHistory.get(normalizedSessionId)?.length) || -1}`);
+
+		return {
+			rebuilt: true,
+			turnCount: trimmedTurns.length
+		};
+	});
 }
 
 export async function generateChatReply(
@@ -212,9 +222,29 @@ export async function generateChatReply(
 	onChunk?: (chunk: string) => void | Promise<void>,
 	options?: GenerateChatReplyOptions
 ): Promise<{ reply: string; model: ChatModelInfo }> {
+	const mode = options?.mode ?? 'chat';
+	const normalizedSessionId = normalizeSessionId(sessionId);
+
+	if (mode !== 'chat') {
+		return generateChatReplyInternal(normalizedSessionId, userMessage, modelId, onChunk, options);
+	}
+
+	return enqueueSessionTask(normalizedSessionId, async () =>
+		generateChatReplyInternal(normalizedSessionId, userMessage, modelId, onChunk, options)
+	);
+}
+
+async function generateChatReplyInternal(
+	sessionId: string,
+	userMessage: string,
+	modelId?: string,
+	onChunk?: (chunk: string) => void | Promise<void>,
+	options?: GenerateChatReplyOptions
+): Promise<{ reply: string; model: ChatModelInfo }> {
 	debugLog(`handle chat request, session id:${sessionId}, model id:${modelId}, user msg:${userMessage}`);
 	const model = await selectChatModel(modelId);
 	const mode = options?.mode ?? 'chat';
+	const contextVersionAtRequest = globalContextVersion;
 	const messages = buildMessagesForSession(sessionId, userMessage, model.maxInputTokens, {
 		mode,
 		summarySource: options?.summarySource
@@ -225,8 +255,24 @@ export async function generateChatReply(
 
 	const streamedReply = await readModelTextResponse(modelResponse, onChunk);
 	const reply = streamedReply.trim() ? streamedReply : 'Model returned an empty response.';
+	const modelInfo: ChatModelInfo = {
+		id: model.id,
+		name: model.name,
+		vendor: model.vendor,
+		family: model.family,
+		version: model.version,
+		maxInputTokens: model.maxInputTokens
+	};
 
 	if (mode === 'chat') {
+		if (contextVersionAtRequest !== globalContextVersion) {
+			debugLog(`skip persisting reply for session ${sessionId} because context was cleared while request was in-flight`);
+			return {
+				reply,
+				model: modelInfo
+			};
+		}
+
 		appendTurn(sessionId, 'user', userMessage);
 		appendTurn(sessionId, 'assistant', reply);
 		await compactSessionMemoryIfNeeded(sessionId, model);
@@ -234,14 +280,7 @@ export async function generateChatReply(
 
 	return {
 		reply,
-		model: {
-			id: model.id,
-			name: model.name,
-			vendor: model.vendor,
-			family: model.family,
-			version: model.version,
-			maxInputTokens: model.maxInputTokens
-		}
+		model: modelInfo
 	};
 }
 
@@ -311,6 +350,61 @@ function appendTurn(sessionId: string, role: MessageRole, content: string): void
 	const history = sessionHistory.get(sessionId) ?? [];
 	history.push({ role, content });
 	sessionHistory.set(sessionId, trimSessionHistoryToMaxItems(history));
+}
+
+function clearSessionHistoryCore(sessionId: string): boolean {
+	const historyDeleted = sessionHistory.delete(sessionId);
+	const summaryDeleted = sessionSummaries.delete(sessionId);
+	return historyDeleted || summaryDeleted;
+}
+
+function normalizeSessionId(sessionId: string): string {
+	const normalized = String(sessionId || '').trim();
+	return normalized || 'unknown-session';
+}
+
+async function enqueueSessionTask<T>(sessionId: string, task: () => Promise<T> | T): Promise<T> {
+	const key = normalizeSessionId(sessionId);
+	const previousTail = sessionWorkTails.get(key) ?? Promise.resolve();
+	let resolveCurrentTail: (() => void) | undefined;
+	const currentTail = new Promise<void>((resolve) => {
+		resolveCurrentTail = resolve;
+	});
+
+	sessionWorkTails.set(
+		key,
+		previousTail.then(
+			() => currentTail,
+			() => currentTail
+		)
+	);
+
+	await previousTail;
+	try {
+		return await task();
+	} finally {
+		resolveCurrentTail?.();
+		if (sessionWorkTails.get(key) === currentTail) {
+			sessionWorkTails.delete(key);
+		}
+	}
+}
+
+async function enqueueWithSessionLocks<T>(sessionIds: string[], task: () => Promise<T> | T): Promise<T> {
+	const uniqueSessionIds = Array.from(
+		new Set(sessionIds.map((sessionId) => String(sessionId || '').trim()).filter((sessionId) => Boolean(sessionId)))
+	).sort();
+
+	const runAtIndex = async (index: number): Promise<T> => {
+		if (index >= uniqueSessionIds.length) {
+			return await task();
+		}
+
+		const sessionId = uniqueSessionIds[index];
+		return enqueueSessionTask(sessionId, () => runAtIndex(index + 1));
+	};
+
+	return runAtIndex(0);
 }
 
 

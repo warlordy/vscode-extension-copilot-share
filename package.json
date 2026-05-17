@@ -49,6 +49,18 @@
           "minimum": 1,
           "maximum": 65535,
           "description": "Preferred starting port for the Copilot Share web server. If unavailable, the extension will try the next ports automatically."
+        },
+        "copilot-share.maxConcurrentChats": {
+          "type": "number",
+          "default": 200,
+          "minimum": 1,
+          "maximum": 400,
+          "description": "Maximum number of concurrent chat-generation requests processed at once. Additional chat requests wait in a short queue."
+        },
+        "copilot-share.sessionKeyHeader": {
+          "type": "string",
+          "default": "x-copilot-share-session-key",
+          "description": "Optional HTTP header name used as a per-session scheduling key for API requests. Set to an empty string to disable header-based extraction."
         }
       }
     }

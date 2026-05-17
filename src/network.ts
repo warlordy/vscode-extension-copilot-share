@@ -16,6 +16,12 @@ import {
 import {EXTENSION_ID, debugLog} from './helper';
 
 const MAX_BODY_SIZE = 1024 * 1024;
+const DEFAULT_MAX_CONCURRENT_CHAT_REQUESTS = 200;
+const MIN_MAX_CONCURRENT_CHAT_REQUESTS = 1;
+const MAX_MAX_CONCURRENT_CHAT_REQUESTS = 400;
+const MAX_CHAT_QUEUE_LENGTH = 64;
+const CHAT_QUEUE_WAIT_TIMEOUT_MS = 20_000;
+const DEFAULT_SESSION_KEY_HEADER_NAME = 'x-copilot-share-session-key';
 
 let webServer: http.Server | undefined;
 let serverUrl: string | undefined;
@@ -23,6 +29,22 @@ let lanUrls: string[] = [];
 let onServerStateChanged: (() => void) | undefined;
 let accessCode: string | undefined;
 let accessControlEnabled = true;
+let inFlightChatRequests = 0;
+const sessionRequestTails = new Map<string, Promise<void>>();
+
+type ChatConcurrencyPermit = {
+	release: () => void;
+};
+
+type PendingChatPermit = {
+	resolve: (permit: ChatConcurrencyPermit) => void;
+	reject: (error: Error) => void;
+	timeout: NodeJS.Timeout;
+};
+
+const pendingChatPermits: PendingChatPermit[] = [];
+
+class ChatCapacityError extends Error {}
 
 type ServerStartResult = {
 	localUrl: string;
@@ -51,7 +73,12 @@ export function getNetworkStates():any {
 		serverUrl: serverUrl,
 		lanUrls: lanUrls,
 		hasAccessCode: Boolean(accessCode),
-		accessControlEnabled
+		accessControlEnabled,
+		chatConcurrency: {
+			inFlight: inFlightChatRequests,
+			queued: pendingChatPermits.length,
+			maxConcurrent: getMaxConcurrentChatRequests()
+		}
 	};
 }
 
@@ -165,6 +192,8 @@ export async function startWebServer(
 		webServer = undefined;
 		serverUrl = undefined;
 		lanUrls = [];
+		resetChatConcurrencyState();
+		sessionRequestTails.clear();
 		notifyServerStateChanged();
 	});
 
@@ -210,55 +239,60 @@ async function handleRequest(
 	try {
 		const method = request.method ?? 'GET';
 		const url = new URL(request.url ?? '/', 'http://127.0.0.1');
+		const requestBody = method === 'POST' && url.pathname.startsWith('/api/')
+			? await readJsonBody(request)
+			: {};
 
-		if (method === 'POST' && url.pathname === '/api/access-code/verify') {
-			await handleAuthVerifyRequest(request, response);
-			return;
-		}
+		await runWithSessionScheduling(request, requestBody, async () => {
+			if (method === 'POST' && url.pathname === '/api/access-code/verify') {
+				await handleAuthVerifyRequest(response, requestBody);
+				return;
+			}
 
-		if (isAccessControlRequiredPath(url.pathname) && accessControlEnabled && !isAuthorizedRequest(request)) {
-			sendJson(response, 401, {
-				error: 'Unauthorized: valid access code required.'
-			});
-			return;
-		}
+			if (isAccessControlRequiredPath(url.pathname) && accessControlEnabled && !isAuthorizedRequest(request)) {
+				sendJson(response, 401, {
+					error: 'Unauthorized: valid access code required.'
+				});
+				return;
+			}
 
-		if (method === 'POST' && url.pathname === '/api/chat') {
-			await handleChatRequest(request, response);
-			return;
-		}
+			if (method === 'POST' && url.pathname === '/api/chat') {
+				await handleChatRequest(response, requestBody);
+				return;
+			}
 
-		if (method === 'POST' && url.pathname === '/api/chat/reset') {
-			await handleChatResetRequest(request, response);
-			return;
-		}
+			if (method === 'POST' && url.pathname === '/api/chat/reset') {
+				await handleChatResetRequest(response, requestBody);
+				return;
+			}
 
-		if (method === 'POST' && url.pathname === '/api/chat/clone-context') {
-			await handleChatCloneContextRequest(request, response);
-			return;
-		}
+			if (method === 'POST' && url.pathname === '/api/chat/clone-context') {
+				await handleChatCloneContextRequest(response, requestBody);
+				return;
+			}
 
-		if (method === 'POST' && url.pathname === '/api/chat/rebuild-context') {
-			await handleChatRebuildContextRequest(request, response);
-			return;
-		}
+			if (method === 'POST' && url.pathname === '/api/chat/rebuild-context') {
+				await handleChatRebuildContextRequest(response, requestBody);
+				return;
+			}
 
-		if (method === 'GET' && url.pathname === '/api/models') {
-			await handleModelsRequest(response);
-			return;
-		}
+			if (method === 'GET' && url.pathname === '/api/models') {
+				await handleModelsRequest(response);
+				return;
+			}
 
-		if (method === 'GET' && url.pathname === '/api/server-info') {
-			handleServerInfoRequest(response);
-			return;
-		}
+			if (method === 'GET' && url.pathname === '/api/server-info') {
+				handleServerInfoRequest(response);
+				return;
+			}
 
-		if (method === 'GET') {
-			await handleStaticRequest(url.pathname, response, webRoot);
-			return;
-		}
+			if (method === 'GET') {
+				await handleStaticRequest(url.pathname, response, webRoot);
+				return;
+			}
 
-		sendJson(response, 405, { error: 'Method not allowed' });
+			sendJson(response, 405, { error: 'Method not allowed' });
+		});
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error);
 		debugLog(`handle requrest failed, error : ${message}`);
@@ -267,15 +301,14 @@ async function handleRequest(
 }
 
 async function handleAuthVerifyRequest(
-	request: http.IncomingMessage,
-	response: http.ServerResponse
+	response: http.ServerResponse,
+	body: Record<string, unknown>
 ): Promise<void> {
 	if (!accessControlEnabled) {
 		sendJson(response, 200, { ok: true, accessControlEnabled: false });
 		return;
 	}
 
-	const body = await readJsonBody(request);
 	const submittedAccessCode = typeof body.accessCode === 'string' ? body.accessCode.trim() : '';
 	if (!submittedAccessCode) {
 		sendJson(response, 400, { error: 'accessCode is required.' });
@@ -291,10 +324,9 @@ async function handleAuthVerifyRequest(
 }
 
 async function handleChatRequest(
-	request: http.IncomingMessage,
-	response: http.ServerResponse
+	response: http.ServerResponse,
+	body: Record<string, unknown>
 ): Promise<void> {
-	const body = await readJsonBody(request);
 	const sessionId = typeof body.sessionId === 'string' ? body.sessionId : 'unknown-session';
 	const modelId = typeof body.modelId === 'string' ? body.modelId : undefined;
 	const requestType = typeof body.requestType === 'string' ? body.requestType.trim().toLowerCase() : '';
@@ -319,37 +351,56 @@ async function handleChatRequest(
 		return;
 	}
 
-	if (stream) {
-		await handleChatRequestStream(response, { sessionId, userMessage, modelId });
-		return;
+	let chatPermit: ChatConcurrencyPermit;
+	try {
+		chatPermit = await acquireChatConcurrencyPermit();
+	} catch (error) {
+		if (error instanceof ChatCapacityError) {
+			sendJson(response, 503, {
+				sessionId,
+				error: error.message
+			});
+			return;
+		}
+
+		throw error;
 	}
 
-	const messageForModel = summarizeSession ? (userMessage || summarySource) : userMessage;
-	const requestOptions = summarizeSession
-		? {
-			mode: 'session-summary' as const,
-			summarySource
+	try {
+		if (stream) {
+			await handleChatRequestStream(response, { sessionId, userMessage, modelId });
+			return;
 		}
-		: promptPolish
+
+		const messageForModel = summarizeSession ? (userMessage || summarySource) : userMessage;
+		const requestOptions = summarizeSession
 			? {
-				mode: 'prompt-polish' as const
+				mode: 'session-summary' as const,
+				summarySource
 			}
-			: undefined;
+			: promptPolish
+				? {
+					mode: 'prompt-polish' as const
+				}
+				: undefined;
 
-	const result = await generateChatReply(
-		sessionId,
-		messageForModel,
-		modelId,
-		undefined,
-		requestOptions
-	);
+		const result = await generateChatReply(
+			sessionId,
+			messageForModel,
+			modelId,
+			undefined,
+			requestOptions
+		);
 
-	sendJson(response, 200, {
-		sessionId,
-		reply: result.reply,
-		model: result.model,
-		timestamp: Date.now()
-	});
+		sendJson(response, 200, {
+			sessionId,
+			reply: result.reply,
+			model: result.model,
+			timestamp: Date.now()
+		});
+	} finally {
+		chatPermit.release();
+	}
 }
 
 async function handleChatRequestStream(
@@ -415,10 +466,9 @@ async function handleModelsRequest(response: http.ServerResponse): Promise<void>
 }
 
 async function handleChatResetRequest(
-	request: http.IncomingMessage,
-	response: http.ServerResponse
+	response: http.ServerResponse,
+	body: Record<string, unknown>
 ): Promise<void> {
-	const body = await readJsonBody(request);
 	const clearAll = body.clearAll === true;
 
 	if (clearAll) {
@@ -439,20 +489,20 @@ async function handleChatResetRequest(
 		return;
 	}
 
-	const existed = clearSessionHistory(sessionId);
+	const normalizedSessionId = normalizeSessionRequestKey(sessionId);
+	const existed = await clearSessionHistory(normalizedSessionId);
 	sendJson(response, 200, {
 		cleared: true,
 		clearAll: false,
-		sessionId,
+		sessionId: normalizedSessionId,
 		hadHistory: existed
 	});
 }
 
 async function handleChatCloneContextRequest(
-	request: http.IncomingMessage,
-	response: http.ServerResponse
+	response: http.ServerResponse,
+	body: Record<string, unknown>
 ): Promise<void> {
-	const body = await readJsonBody(request);
 	const sourceSessionId = typeof body.sourceSessionId === 'string' ? body.sourceSessionId.trim() : '';
 	const targetSessionId = typeof body.targetSessionId === 'string' ? body.targetSessionId.trim() : '';
 
@@ -463,21 +513,22 @@ async function handleChatCloneContextRequest(
 		return;
 	}
 
-	const result = cloneSessionContext(sourceSessionId, targetSessionId);
+	const normalizedSourceSessionId = normalizeSessionRequestKey(sourceSessionId);
+	const normalizedTargetSessionId = normalizeSessionRequestKey(targetSessionId);
+	const result = await cloneSessionContext(normalizedSourceSessionId, normalizedTargetSessionId);
 	sendJson(response, 200, {
 		cloned: true,
-		sourceSessionId,
-		targetSessionId,
+		sourceSessionId: normalizedSourceSessionId,
+		targetSessionId: normalizedTargetSessionId,
 		historyCopied: result.historyCopied,
 		summaryCopied: result.summaryCopied
 	});
 }
 
 async function handleChatRebuildContextRequest(
-	request: http.IncomingMessage,
-	response: http.ServerResponse
+	response: http.ServerResponse,
+	body: Record<string, unknown>
 ): Promise<void> {
-	const body = await readJsonBody(request);
 	const sessionId = typeof body.sessionId === 'string' ? body.sessionId.trim() : '';
 	const turnsInput = Array.isArray(body.turns) ? body.turns : [];
 
@@ -505,10 +556,11 @@ async function handleChatRebuildContextRequest(
 		return [{ role, content }];
 	});
 
-	const result = rebuildSessionContext(sessionId, turns);
+	const normalizedSessionId = normalizeSessionRequestKey(sessionId);
+	const result = await rebuildSessionContext(normalizedSessionId, turns);
 	sendJson(response, 200, {
 		rebuilt: result.rebuilt,
-		sessionId,
+		sessionId: normalizedSessionId,
 		turnCount: result.turnCount
 	});
 }
@@ -521,7 +573,15 @@ function handleServerInfoRequest(response: http.ServerResponse): void {
 		localUrl: serverUrl ?? null,
 		lanUrls,
 		usedPort,
-		accessControlEnabled
+		accessControlEnabled,
+		sessionScheduling: {
+			headerName: getConfiguredSessionKeyHeaderName() || null
+		},
+		chatConcurrency: {
+			inFlight: inFlightChatRequests,
+			queued: pendingChatPermits.length,
+			maxConcurrent: getMaxConcurrentChatRequests()
+		}
 	});
 }
 
@@ -768,6 +828,226 @@ function getConfiguredStartPort(): number {
 	return configured;
 }
 
+function getMaxConcurrentChatRequests(): number {
+	const configured = vscode.workspace
+		.getConfiguration(`${EXTENSION_ID}`)
+		.get<number>('maxConcurrentChats', DEFAULT_MAX_CONCURRENT_CHAT_REQUESTS);
+
+	if (!Number.isInteger(configured)) {
+		return DEFAULT_MAX_CONCURRENT_CHAT_REQUESTS;
+	}
+
+	return Math.min(
+		MAX_MAX_CONCURRENT_CHAT_REQUESTS,
+		Math.max(MIN_MAX_CONCURRENT_CHAT_REQUESTS, configured)
+	);
+}
+
+function getConfiguredSessionKeyHeaderName(): string {
+	const configured = vscode.workspace
+		.getConfiguration(`${EXTENSION_ID}`)
+		.get<string>('sessionKeyHeader', DEFAULT_SESSION_KEY_HEADER_NAME);
+
+	if (typeof configured !== 'string') {
+		return DEFAULT_SESSION_KEY_HEADER_NAME;
+	}
+
+	return configured.trim().toLowerCase();
+}
+
+function readSessionKeyFromHeader(request: http.IncomingMessage): string {
+	const headerName = getConfiguredSessionKeyHeaderName();
+	if (!headerName) {
+		return '';
+	}
+
+	const headerValue = request.headers[headerName];
+	if (Array.isArray(headerValue)) {
+		for (const item of headerValue) {
+			const normalized = String(item || '').trim();
+			if (normalized) {
+				return normalized;
+			}
+		}
+		return '';
+	}
+
+	return typeof headerValue === 'string' ? headerValue.trim() : '';
+}
+
+function resolveSessionKeysForScheduling(
+	request: http.IncomingMessage,
+	body: Record<string, unknown>
+): string[] {
+	const keys = new Set<string>();
+
+	const keyFromHeader = readSessionKeyFromHeader(request);
+	if (keyFromHeader) {
+		keys.add(normalizeSessionRequestKey(keyFromHeader));
+	}
+
+	for (const fieldName of ['sessionId', 'sourceSessionId', 'targetSessionId', 'sessionKey'] as const) {
+		const raw = body[fieldName];
+		if (typeof raw !== 'string') {
+			continue;
+		}
+
+		const normalized = raw.trim();
+		if (!normalized) {
+			continue;
+		}
+
+		keys.add(normalizeSessionRequestKey(normalized));
+	}
+
+	return Array.from(keys);
+}
+
+async function runWithSessionScheduling<T>(
+	request: http.IncomingMessage,
+	body: Record<string, unknown>,
+	task: () => Promise<T> | T
+): Promise<T> {
+	const keys = resolveSessionKeysForScheduling(request, body);
+	if (keys.length === 0) {
+		return await task();
+	}
+
+	if (keys.length === 1) {
+		return enqueueSessionRequestTask(keys[0], task);
+	}
+
+	return enqueueWithSessionRequestLocks(keys, task);
+}
+
+function normalizeSessionRequestKey(sessionId: string): string {
+	const normalized = String(sessionId || '').trim();
+	return normalized || 'unknown-session';
+}
+
+async function enqueueSessionRequestTask<T>(sessionId: string, task: () => Promise<T> | T): Promise<T> {
+	const key = normalizeSessionRequestKey(sessionId);
+	const previousTail = sessionRequestTails.get(key) ?? Promise.resolve();
+	let resolveCurrentTail: (() => void) | undefined;
+	const currentTail = new Promise<void>((resolve) => {
+		resolveCurrentTail = resolve;
+	});
+
+	sessionRequestTails.set(
+		key,
+		previousTail.then(
+			() => currentTail,
+			() => currentTail
+		)
+	);
+
+	await previousTail;
+	try {
+		return await task();
+	} finally {
+		resolveCurrentTail?.();
+		if (sessionRequestTails.get(key) === currentTail) {
+			sessionRequestTails.delete(key);
+		}
+	}
+}
+
+async function enqueueWithSessionRequestLocks<T>(sessionIds: string[], task: () => Promise<T> | T): Promise<T> {
+	const uniqueSessionIds = Array.from(
+		new Set(sessionIds.map((sessionId) => normalizeSessionRequestKey(sessionId)))
+	).sort();
+
+	const runAtIndex = async (index: number): Promise<T> => {
+		if (index >= uniqueSessionIds.length) {
+			return await task();
+		}
+
+		const sessionId = uniqueSessionIds[index];
+		return enqueueSessionRequestTask(sessionId, () => runAtIndex(index + 1));
+	};
+
+	return runAtIndex(0);
+}
+
+async function acquireChatConcurrencyPermit(): Promise<ChatConcurrencyPermit> {
+	const maxConcurrent = getMaxConcurrentChatRequests();
+	if (inFlightChatRequests < maxConcurrent && pendingChatPermits.length === 0) {
+		inFlightChatRequests += 1;
+		return createChatConcurrencyPermit();
+	}
+
+	if (pendingChatPermits.length >= MAX_CHAT_QUEUE_LENGTH) {
+		throw new ChatCapacityError('Server is busy. Too many chat requests are queued.');
+	}
+
+	return new Promise<ChatConcurrencyPermit>((resolve, reject) => {
+		const pending: PendingChatPermit = {
+			resolve: (permit) => {
+				resolve(permit);
+			},
+			reject,
+			timeout: undefined as unknown as NodeJS.Timeout
+		};
+
+		pending.timeout = setTimeout(() => {
+			const index = pendingChatPermits.indexOf(pending);
+			if (index >= 0) {
+				pendingChatPermits.splice(index, 1);
+			}
+			reject(new ChatCapacityError('Server is busy. Timed out while waiting for a chat slot.'));
+		}, CHAT_QUEUE_WAIT_TIMEOUT_MS);
+
+		pendingChatPermits.push(pending);
+	});
+}
+
+function createChatConcurrencyPermit(): ChatConcurrencyPermit {
+	let released = false;
+	return {
+		release: () => {
+			if (released) {
+				return;
+			}
+
+			released = true;
+			handoffNextChatPermit();
+		}
+	};
+}
+
+function handoffNextChatPermit(): void {
+	while (pendingChatPermits.length > 0) {
+		const pending = pendingChatPermits.shift();
+		if (!pending) {
+			break;
+		}
+
+		clearTimeout(pending.timeout);
+		if (!webServer) {
+			pending.reject(new ChatCapacityError('Server is not running.'));
+			continue;
+		}
+
+		pending.resolve(createChatConcurrencyPermit());
+		return;
+	}
+
+	inFlightChatRequests = Math.max(0, inFlightChatRequests - 1);
+}
+
+function resetChatConcurrencyState(): void {
+	inFlightChatRequests = 0;
+	while (pendingChatPermits.length > 0) {
+		const pending = pendingChatPermits.shift();
+		if (!pending) {
+			continue;
+		}
+
+		clearTimeout(pending.timeout);
+		pending.reject(new ChatCapacityError('Server stopped before the request could be processed.'));
+	}
+}
+
 async function createServerWithPortFallback(
 	webRoot: string,
 	startPort: number
@@ -775,6 +1055,17 @@ async function createServerWithPortFallback(
 	for (let port = startPort; port <= 65535; port += 1) {
 		const server = http.createServer((request, response) => {
 			void handleRequest(request, response, webRoot);
+		});
+
+		server.requestTimeout = 60_000;
+		server.headersTimeout = 65_000;
+		server.keepAliveTimeout = 15_000;
+		server.maxRequestsPerSocket = 250;
+		server.on('clientError', (error, socket) => {
+			debugLog(`client error: ${error.message}`);
+			if (socket.writable) {
+				socket.end('HTTP/1.1 400 Bad Request\r\n\r\n');
+			}
 		});
 
 		try {
