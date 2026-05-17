@@ -6,6 +6,9 @@ node_modules/**
 src/**
 !src/res/
 !src/res/icon_green_background_128.png
+!src/doc/
+!src/doc/readme/
+!src/doc/readme/**
 !src/webapp/
 !src/webapp/**
 scripts/**

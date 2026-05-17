@@ -61,7 +61,7 @@ Why call it session-oriented?
 
 ## Framework
 
-- **Client-Host Topology**
+- Client-Host Topology
 
 <img src="src/doc/readme/framework-deployment-dataflow.drawio.png" alt="Deployment architecture and data flow" style="display: block; width: min(100%, 760px); height: auto; margin-top: 0.45rem; border: 1px solid #d0d7de; border-radius: 8px; background: #ffffff;" />
 
