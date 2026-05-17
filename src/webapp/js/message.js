@@ -98,6 +98,25 @@ function getModelName(model) {
 	return rawName || "Model";
 }
 
+function normalizeModelMetadata(model) {
+	const modelId = typeof model?.id === "string" ? model.id.trim() : "";
+	const modelName = typeof model?.name === "string" ? model.name.trim() : "";
+	return { modelId, modelName };
+}
+
+function resolveModelMetadataFromId(modelId) {
+	const normalizedModelId = typeof modelId === "string" ? modelId.trim() : "";
+	if (!normalizedModelId) {
+		return { modelId: "", modelName: "" };
+	}
+
+	const item = modelPickerState.items.find((model) => model.id === normalizedModelId);
+	return {
+		modelId: normalizedModelId,
+		modelName: item ? String(item.name || "").trim() : ""
+	};
+}
+
 function isAutoModel(item) {
 	const combined = `${item.name} ${item.id}`.toLowerCase();
 	return combined.includes("auto");
@@ -482,6 +501,8 @@ if (document.readyState === "loading") {
 window.onUserSend = async ({ sessionId, text, modelId }) => {
 	let streamMessageId = "";
 	let streamedText = "";
+	let responseModelMetadata = { modelId: "", modelName: "" };
+	const requestedModelMetadata = resolveModelMetadataFromId(modelId);
 	const controller = new AbortController();
 	attachStreamController(sessionId, controller);
 
@@ -505,12 +526,13 @@ window.onUserSend = async ({ sessionId, text, modelId }) => {
 		if (!response.body) {
 			const data = await response.json();
 			const replyText = typeof data.reply === 'string' ? data.reply : 'No response text returned.';
-			window.appendAgentMessage(sessionId, replyText);
+			const modelMetadata = normalizeModelMetadata(data?.model);
+			window.appendAgentMessage(sessionId, replyText, modelMetadata);
 			return;
 		}
 
 		if (typeof window.startAgentMessageStream === "function") {
-			streamMessageId = window.startAgentMessageStream(sessionId);
+			streamMessageId = window.startAgentMessageStream(sessionId, requestedModelMetadata);
 		}
 
 		const reader = response.body.getReader();
@@ -545,10 +567,14 @@ window.onUserSend = async ({ sessionId, text, modelId }) => {
 
 			if (payload.type === "done") {
 				const finalText = typeof payload.reply === "string" ? payload.reply : streamedText;
+				responseModelMetadata = normalizeModelMetadata(payload.model);
+				const messageModelMetadata = responseModelMetadata.modelId || responseModelMetadata.modelName
+					? responseModelMetadata
+					: requestedModelMetadata;
 				if (streamMessageId && typeof window.finalizeAgentMessageStream === "function") {
-					window.finalizeAgentMessageStream(sessionId, streamMessageId, finalText);
+					window.finalizeAgentMessageStream(sessionId, streamMessageId, finalText, messageModelMetadata);
 				} else {
-					window.appendAgentMessage(sessionId, finalText);
+					window.appendAgentMessage(sessionId, finalText, messageModelMetadata);
 				}
 				return;
 			}
@@ -582,7 +608,7 @@ window.onUserSend = async ({ sessionId, text, modelId }) => {
 	} catch (error) {
 		if (error instanceof DOMException && error.name === "AbortError") {
 			if (streamMessageId && typeof window.finalizeAgentMessageStream === "function") {
-				window.finalizeAgentMessageStream(sessionId, streamMessageId, streamedText || "Generation canceled.");
+				window.finalizeAgentMessageStream(sessionId, streamMessageId, streamedText || "Generation canceled.", responseModelMetadata);
 			} else if (!streamedText) {
 				window.appendAgentMessage(sessionId, "Generation canceled.");
 			}
@@ -596,7 +622,7 @@ window.onUserSend = async ({ sessionId, text, modelId }) => {
 		}
 
 		if (streamMessageId && typeof window.finalizeAgentMessageStream === "function") {
-			window.finalizeAgentMessageStream(sessionId, streamMessageId, streamedText || `Request failed: ${message}`);
+			window.finalizeAgentMessageStream(sessionId, streamMessageId, streamedText || `Request failed: ${message}`, responseModelMetadata);
 			return;
 		}
 		window.appendAgentMessage(sessionId, `Request failed: ${message}`);

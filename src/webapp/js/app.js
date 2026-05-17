@@ -1233,6 +1233,14 @@ function normalizeMessageState(message) {
 	if (typeof message.isFavorite !== "boolean") {
 		message.isFavorite = false;
 	}
+
+	if (typeof message.modelId !== "string") {
+		message.modelId = "";
+	}
+
+	if (typeof message.modelName !== "string") {
+		message.modelName = "";
+	}
 }
 
 function getMessageContextMenuItemConfig(action) {
@@ -1496,6 +1504,15 @@ function buildMessageRecordsMarkdown(messages) {
 		const roleLabel = message.role === "agent" ? (prefix.copilot + " " + "Copilot") : (prefix.user + " " + "User");
 		const timestamp = Number.isFinite(message.timestamp) ? formatDateTime(message.timestamp) : "Unknown time";
 		lines.push(`**${roleLabel} (${timestamp})**`);
+		if (message.role === "agent") {
+			const messageModel = resolveAgentMessageModelMetadata(message);
+			if (messageModel.modelName) {
+				lines.push(`- Model: ${messageModel.modelName}`);
+			}
+			if (messageModel.modelId) {
+				lines.push(`- Model ID: ${messageModel.modelId}`);
+			}
+		}
 		lines.push("");
 
 		if (message.role === "agent") {
@@ -2308,6 +2325,49 @@ function resolveModelMetadata(session) {
 	};
 }
 
+function resolveModelNameById(modelId) {
+	const normalizedModelId = String(modelId || "").trim();
+	if (!normalizedModelId || !(modelSelectEl instanceof HTMLSelectElement)) {
+		return "";
+	}
+
+	const option = Array.from(modelSelectEl.options).find((item) => item.value === normalizedModelId);
+	return option ? String(option.textContent || normalizedModelId).trim() : "";
+}
+
+function resolveAgentMessageModelLabel(session, message) {
+	const explicitName = String(message?.modelName || "").trim();
+	if (explicitName) {
+		return explicitName;
+	}
+
+	const explicitId = String(message?.modelId || "").trim();
+	if (explicitId) {
+		return resolveModelNameById(explicitId) || explicitId;
+	}
+
+	const sessionModelId = String(session?.modelId || "").trim();
+	if (sessionModelId) {
+		return resolveModelNameById(sessionModelId) || sessionModelId;
+	}
+
+	return "Unknown model";
+}
+
+function resolveAgentMessageModelMetadata(message) {
+	const modelId = String(message?.modelId || "").trim();
+	let modelName = String(message?.modelName || "").trim();
+
+	if (!modelName && modelId) {
+		modelName = resolveModelNameById(modelId);
+	}
+
+	return {
+		modelId,
+		modelName
+	};
+}
+
 function buildSessionMarkdown(session) {
 	const model = resolveModelMetadata(session);
 	const summaryMarkdown = getSessionSummaryMarkdown(session);
@@ -2346,6 +2406,15 @@ function buildSessionMarkdown(session) {
 		const timestamp = Number.isFinite(message.timestamp) ? formatDateTime(message.timestamp) : "Unknown time";
 		lines.push("");
 		lines.push(`### ${roleLabel} (${timestamp})`);
+		if (message.role === "agent") {
+			const messageModel = resolveAgentMessageModelMetadata(message);
+			if (messageModel.modelName) {
+				lines.push(`- Model: ${messageModel.modelName}`);
+			}
+			if (messageModel.modelId) {
+				lines.push(`- Model ID: ${messageModel.modelId}`);
+			}
+		}
 		lines.push("");
 		lines.push(asFencedMarkdownBlock(String(message.text || "")));
 	}
@@ -2553,19 +2622,47 @@ function parseSessionMessagesFromMarkdown(markdown) {
 		const role = headingMatch[1] === "Copilot" ? "agent" : "user";
 		const timestamp = parseSessionTimestamp(headingMatch[2]);
 		index += 1;
+		let modelName = "";
+		let modelId = "";
 
-		while (index < lines.length && !String(lines[index]).trim()) {
-			index += 1;
+		while (index < lines.length) {
+			const line = String(lines[index] || "");
+			const trimmed = line.trim();
+			if (!trimmed) {
+				index += 1;
+				continue;
+			}
+
+			const modelNameMatch = trimmed.match(/^\-\s*Model\s*:\s*(.*)$/i);
+			if (modelNameMatch) {
+				modelName = String(modelNameMatch[1] || "").trim();
+				index += 1;
+				continue;
+			}
+
+			const modelIdMatch = trimmed.match(/^\-\s*Model\s*ID\s*:\s*(.*)$/i);
+			if (modelIdMatch) {
+				modelId = String(modelIdMatch[1] || "").trim();
+				index += 1;
+				continue;
+			}
+
+			break;
 		}
 
 		if (index >= lines.length) {
-			messages.push({
+			const messageRecord = {
 				id: `m_${Date.now()}_${Math.random().toString(16).slice(2, 7)}`,
 				role,
 				text: "",
 				timestamp,
 				isFavorite: false
-			});
+			};
+			if (role === "agent") {
+				messageRecord.modelName = modelName;
+				messageRecord.modelId = modelId;
+			}
+			messages.push(messageRecord);
 			break;
 		}
 
@@ -2588,13 +2685,18 @@ function parseSessionMessagesFromMarkdown(markdown) {
 			index += 1;
 		}
 
-		messages.push({
+		const messageRecord = {
 			id: `m_${Date.now()}_${Math.random().toString(16).slice(2, 7)}`,
 			role,
 			text: contentLines.join("\n"),
 			timestamp,
 			isFavorite: false
-		});
+		};
+		if (role === "agent") {
+			messageRecord.modelName = modelName;
+			messageRecord.modelId = modelId;
+		}
+		messages.push(messageRecord);
 	}
 
 	return messages;
@@ -3748,8 +3850,12 @@ function renderMessages({ preserveScroll = false } = {}) {
 
 		const bubbleClass = msg.role === "agent" ? "bubble markdown" : "bubble";
 		const markdownRenderer = typeof window.renderAgentMarkdown === "function" ? window.renderAgentMarkdown : escapeHtml;
+		const modelLabel = msg.role === "agent" ? resolveAgentMessageModelLabel(active, msg) : "";
+		const modelLabelHtml = msg.role === "agent"
+			? `<div class="agent-model-label" title="${escapeHtml(modelLabel)}">⚡ Model: ${escapeHtml(modelLabel)}</div>`
+			: "";
 		const bubbleContent = msg.role === "agent"
-			? `<div class="md-content markdown-body">${markdownRenderer(msg.text)}</div>`
+			? `${modelLabelHtml}<div class="md-content markdown-body">${markdownRenderer(msg.text)}</div>`
 			: escapeHtml(msg.text);
 		const selectedClass = isMessageSelected(active.id, msg.id) ? " is-selected" : "";
 		const favoriteClass = msg.isFavorite ? " is-favorite" : "";
@@ -4362,13 +4468,15 @@ async function clearActiveSessionHistory() {
 	       }, 1000);
 }
 
-window.startAgentMessageStream = function startAgentMessageStream(sessionId) {
+window.startAgentMessageStream = function startAgentMessageStream(sessionId, options = {}) {
 	const target = sessions.find((item) => item.id === sessionId);
 	if (!target) {
 		return "";
 	}
 
 	hideTypingIndicator(sessionId);
+	const modelId = typeof options.modelId === "string" ? options.modelId.trim() : "";
+	const modelName = typeof options.modelName === "string" ? options.modelName.trim() : "";
 
 	const messageId = `m_${Date.now()}_${Math.random().toString(16).slice(2, 7)}`;
 	target.messages.push({
@@ -4376,7 +4484,9 @@ window.startAgentMessageStream = function startAgentMessageStream(sessionId) {
 		role: "agent",
 		text: "",
 		timestamp: Date.now(),
-		isFavorite: false
+		isFavorite: false,
+		modelId,
+		modelName
 	});
 
 	renderAll();
@@ -4400,7 +4510,7 @@ window.updateAgentMessageStream = function updateAgentMessageStream(sessionId, m
 	saveState();
 };
 
-window.finalizeAgentMessageStream = function finalizeAgentMessageStream(sessionId, messageId, finalText) {
+window.finalizeAgentMessageStream = function finalizeAgentMessageStream(sessionId, messageId, finalText, options = {}) {
 	const target = sessions.find((item) => item.id === sessionId);
 	if (!target || !messageId) {
 		return;
@@ -4412,25 +4522,37 @@ window.finalizeAgentMessageStream = function finalizeAgentMessageStream(sessionI
 	}
 
 	targetMessage.text = String(finalText || targetMessage.text || "").trim();
+	const modelId = typeof options.modelId === "string" ? options.modelId.trim() : "";
+	const modelName = typeof options.modelName === "string" ? options.modelName.trim() : "";
+	if (modelId) {
+		targetMessage.modelId = modelId;
+	}
+	if (modelName) {
+		targetMessage.modelName = modelName;
+	}
 	hideTypingIndicator(sessionId);
 	renderAll();
 	saveState();
 };
 
 // Public helper: call this after receiving model response in your own logic.
-window.appendAgentMessage = function appendAgentMessage(sessionId, text) {
+window.appendAgentMessage = function appendAgentMessage(sessionId, text, options = {}) {
 	const target = sessions.find((item) => item.id === sessionId);
 	if (!target || !String(text || "").trim()) {
 		return;
 	}
 	hideTypingIndicator(sessionId);
+	const modelId = typeof options.modelId === "string" ? options.modelId.trim() : "";
+	const modelName = typeof options.modelName === "string" ? options.modelName.trim() : "";
 
 	target.messages.push({
 		id: `m_${Date.now()}_${Math.random().toString(16).slice(2, 7)}`,
 		role: "agent",
 		text: String(text),
 		timestamp: Date.now(),
-		isFavorite: false
+		isFavorite: false,
+		modelId,
+		modelName
 	});
 
 	renderAll();
