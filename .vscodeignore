@@ -9,6 +9,8 @@ src/**
 !src/doc/
 !src/doc/readme/
 !src/doc/readme/**
+src/res/__pycache__/**
+**/__pycache__/**
 !src/webapp/
 !src/webapp/**
 scripts/**
