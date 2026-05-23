@@ -1,16 +1,16 @@
 {
   "name": "copilot-share",
   "publisher": "warlordy",
-  "displayName": "copilot-share",
+  "displayName": "Copilot Share",
   "description": "copilot-share brings Copilot to a local web hub with a session-oriented workflow",
   "license": "MIT",
-  "homepage": "https://github.com/warlordy/vscode-extention-copilot-sharing#readme",
+  "homepage": "https://github.com/warlordy/vscode-extension-copilot-share#readme",
   "bugs": {
-    "url": "https://github.com/warlordy/vscode-extention-copilot-sharing/issues"
+    "url": "https://github.com/warlordy/vscode-extension-copilot-share/issues"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/warlordy/vscode-extention-copilot-sharing.git"
+    "url": "https://github.com/warlordy/vscode-extension-copilot-share.git"
   },
   "version": "0.0.3",
   "icon": "src/res/icon_green_background_128.png",

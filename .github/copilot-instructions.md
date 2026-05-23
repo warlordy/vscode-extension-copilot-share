@@ -2,6 +2,11 @@
 
 This repository is a VS Code extension that hosts a local LAN web hub for Copilot chat workflows.
 
+## Extension Introduction and Project scenarios
+
+- [`README.md`](../README.md) - extension introduction and product scenario.
+- [`ui-guide-details.md`](../ui-guide-details.md) - UI guide and operation guidance.
+
 ## Project Intent
 
 - Extension id: `copilot-share`
@@ -89,6 +94,12 @@ sequenceDiagram
   S-->>W: Chat response
   W-->>U: Render assistant output
 ```
+## Framework
+
+- Client-Host Topology
+
+<img src="../src/doc/readme/framework-deployment-dataflow.drawio.png" alt="Deployment architecture and data flow" style="display: block; width: min(100%, 760px); height: auto; margin-top: 0.45rem; border: 1px solid #d0d7de; border-radius: 8px; background: #ffffff;" />
+
 
 ## API Contract (Current)
 
@@ -120,7 +131,7 @@ Access control behavior:
 ## Working Rules For Changes
 
 - Preserve command id, extension id, and user-facing control menu flow unless explicitly requested.
-- Keep `README.md` and implementation aligned when changing behavior.
+- Keep `README.md`, `ui-guide-details.md` and implementation aligned when changing behavior.
 - Do not silently break LAN sharing behavior (port selection, URL generation, or access control).
 - Keep request/response schemas backward-compatible unless versioning/migration is explicitly handled.
 - Preserve existing status bar/controller lifecycle and cleanup semantics on deactivate.
@@ -133,7 +144,7 @@ When implementing a feature or fix:
 1. Identify affected layer(s): extension UI, network API, LLM bridge, web app UI.
 2. Prefer minimal, surgical edits over broad refactors.
 3. Preserve existing command names, endpoint names, and payload shapes.
-4. If behavior changes, update docs (`README.md`) in the same change.
+4. If behavior changes, update docs (`README.md` and `ui-guide-details.md`) in the same change.
 5. For auth or LAN behavior, validate both positive and failure flows.
 
 When uncertain:
@@ -178,7 +189,6 @@ For code reviews in this repo, prioritize:
 - `src/webapp/js/app.js` - chat/session UI logic.
 - `src/webapp/js/message.js` - fetch/stream model bridge.
 - `src/webapp/js/copilot-share.js` - access code prompt/verification helper.
-- `README.md` - product scenario and operation guidance.
 
 ## Copilot Response Preference In This Repo
 
