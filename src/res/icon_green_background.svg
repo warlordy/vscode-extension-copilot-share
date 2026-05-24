@@ -13,9 +13,9 @@
 		</radialGradient>
 	</defs>
 
-	<rect x="0" y="0" width="64" height="64" rx="18" fill="url(#bg)"/>
-	<rect x="0" y="0" width="64" height="64" rx="18" fill="url(#shine)"/>
-	<rect x="0.5" y="0.5" width="63" height="63" rx="17.5" fill="none" stroke="#ffffff" stroke-opacity="0.15"/>
+	<rect x="0" y="0" width="64" height="64" fill="url(#bg)"/>
+	<rect x="0" y="0" width="64" height="64" fill="url(#shine)"/>
+	<rect x="0.5" y="0.5" width="63" height="63" fill="none" stroke="#ffffff" stroke-opacity="0.15"/>
 
 	<g fill="none" stroke="#d6f1e2" stroke-linecap="round" opacity="0.86">
 		<path d="M15.5 17.5C10.8 23.5 10.8 34.5 15.5 40.5" stroke-width="3.3"/>
