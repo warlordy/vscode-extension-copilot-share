@@ -2,25 +2,30 @@
 
 Copilot Share brings VS Code Copilot to a local LAN web hub with [session-oriented workflow](#session-oriented-workflow).
 
-- [Quick Start Demo](https://github.com/warlordy/vscode-extension-copilot-share/blob/main/src/doc/readme/copilot-share-screen-recording-quickstart.gif)
+It lets you share Copilot access and usage budgets across devices while providing a session-oriented workflow that treats prompts and responses as reusable and reviewable assets, with built-in search, summary, clone, export, and import features.
+
+## 60-Second Quick Start
+
+🎯**Quick Start:**
+
+1. Click the status bar icon (`Copilot Share`) and select `Start Sharing`.
+2. Select `Open Local Web` to use Copilot in your browser, or select `Copy Public URL` to open it from another device on the same LAN.
+3. Start chatting in a browser.
+
+🆕**User Demo:**
+
+[Quick Start Demo](https://github.com/warlordy/vscode-extension-copilot-share/blob/main/src/doc/readme/copilot-share-screen-recording-quickstart.gif)
 
 <img src="https://github.com/warlordy/vscode-extension-copilot-share/blob/main/src/doc/readme/copilot-share-screen-recording-quickstart.gif" alt="Quick Start Demo" />
 
 ## Why Try Copilot Share
 
-1. 🤗 Use Copilot on phones, tablets, laptops, and other devices on the same local network.
+1. 🤗 Use Copilot on phones, tablets, laptops, and other devices on the same local network  without cloud relay setup.
 2. 🏖️ Share Copilot access and usage budgets with teammates, family members, or workshop participants.
-3. 🚀 Session-oriented workflow:
-   - Treat prompts and responses as reusable work assets, with support for searching, summarizing, cloning, exporting, and importing sessions.
-   - Organize Copilot-assisted work by session so prompts can be reviewed like code, helping verify outcomes against business requirements and reduce AI uncertainty.
-   - Work across multiple sessions through different browser tabs in parallel to keep different tasks moving.
+3. 🚀 Session-oriented workflow that treats prompts and responses as reusable assets, with search, summary, clone, export, and import built in.
 4. ✍️ Built-in Prompt Polish Button: Refine draft prompts before sending for clearer, higher-quality results.
 5. 🧏‍♂️ Access control mode: When enabled, protect chat APIs with a bearer access code.
-
-## Use Cases
-
-- Build a knowledge base from long-running technical chats.
-- Break large projects into smaller tasks and track each one in its own session for an end-to-end, session-driven workflow.
+6. 🧠 Build a reusable knowledge base from long-running chats and break large work into manageable, session-based tasks.
 
 ## Session-Oriented Workflow
 
@@ -39,18 +44,16 @@ Traditionally, code was used to build applications and services. Copilot changes
 - A large project can be broken into smaller tasks, which can be further broken down into subtasks. Every task across all levels can be tracked in its own session. This creates a practical end-to-end session-driven workflow to manage structured multi-stage Copilot tasks.
 
 
-## Quick Start
+## Detailed Workflow
+
+Use [60-Second Quick Start](#60-second-quick-start) to get connected first, then use this checklist for day-to-day work:
 
 1. Install the extension from the VS Code Marketplace.
-2. Click the status bar icon (`Copilot Share`) to open the control menu.
-3. Select `Start Sharing` and choose whether to enable access control.
-4. Select `Open Local Web` on the host, or select `Copy Public URL` to share Copilot across your LAN.
-5. Start chatting.
-   1. Create or open a session.
-   2. Send prompts, retry prompts, and polish drafts when needed.
-   3. Search within one session or across all sessions.
-   4. Summarize noisy chat history into focused outcomes.
-   5. Export or share sessions as Markdown for review and reuse.
+2. Create or open a session in the web hub.
+3. Send prompts, retry prompts, and polish drafts when needed.
+4. Search within one session or across all sessions.
+5. Summarize noisy chat history into focused outcomes.
+6. Export or share sessions as Markdown for review and reuse.
 
 ## Screenshots
 
