@@ -1,22 +1,35 @@
 # Copilot Share
 
-Copilot Share brings VS Code Copilot to a local LAN web hub with [session-oriented workflow](#session-oriented-workflow).
+Copilot Share helps one VS Code host safely share VS Code Copilot access and usage budgets across devices on your local network with a local web hub and provide a [session-oriented workflow](#session-oriented-workflow) that treats sessions as reusable and reviewable assets with built-in search, summary, clone, export, and import features.
 
-It lets you share Copilot access and usage budgets across devices while providing a session-oriented workflow that treats prompts and responses as reusable and reviewable assets, with built-in search, summary, clone, export, and import features.
+## Why Copilot Share
+
+- LAN-first by design: no cloud relay required.
+- Fast setup: start sharing from the status bar and open a web URL.
+- Session-oriented workflow: organize prompts and outcomes by task.
+- Built for review and reuse: summarize, clone, export, import, and search.
+- Optional access control mode: protect chat APIs with an access code.
 
 ## 60-Second Quick Start
 
-🎯**Quick Start:**
+1. Install `Copilot Share` from VS Code Marketplace.
+2. Click the status bar item (`Copilot Share`) and select Start Sharing.
+3. Open Local Web for the host machine, or copy Public URL for another LAN device.
+4. If access control is enabled, enter the access code on the web page.
+5. Start chatting and managing work in sessions.
 
-1. Click the status bar icon (`Copilot Share`) and select `Start Sharing`.
-2. Select `Open Local Web` to use Copilot in your browser, or select `Copy Public URL` to open it from another device on the same LAN.
-3. Start chatting in a browser.
-
-🆕**User Demo:**
+## Quick Demo
 
 [Quick Start Demo](https://github.com/warlordy/vscode-extension-copilot-share/blob/main/src/doc/readme/copilot-share-screen-recording-quickstart.gif)
 
 <img src="https://github.com/warlordy/vscode-extension-copilot-share/blob/main/src/doc/readme/copilot-share-screen-recording-quickstart.gif" alt="Quick Start Demo" />
+
+## Best For
+
+- Developers who want Copilot on a second screen while coding.
+- Teams and workshops sharing one Copilot-enabled VS Code host.
+- Session-based AI workflows that need search, summary, and exportable artifacts.
+- LAN-only environments that prefer local control and low setup friction.
 
 ## Why Try Copilot Share
 

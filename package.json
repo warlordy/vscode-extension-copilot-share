@@ -2,7 +2,7 @@
   "name": "copilot-share",
   "publisher": "warlordy",
   "displayName": "Copilot Share",
-  "description": "Share VS Code Copilot access and usage budgets across devices on your local network with session-oriented workflows while providing a session-oriented workflow that treats prompts and responses as reusable and reviewable assets, with built-in search, summary, clone, export, and import features",
+  "description": "Share VS Code Copilot access and usage budgets across devices on your local network with a local web hub and provide a session-oriented workflow that treats sessions as reusable and reviewable assets with built-in search, summary, clone, export, and import features",
   "license": "MIT",
   "homepage": "https://github.com/warlordy/vscode-extension-copilot-share#readme",
   "bugs": {
@@ -26,10 +26,13 @@
   "keywords": [
     "copilot",
     "vscode copilot",
+    "vscode extension",
     "chat",
     "lan",
     "local network",
+    "mobile copilot",
     "copilot on mobile",
+    "copilot sharing",
     "local ai chat",
     "prompt workflow",
     "session management",
