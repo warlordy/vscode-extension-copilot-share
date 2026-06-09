@@ -12,7 +12,7 @@
     "type": "git",
     "url": "https://github.com/warlordy/vscode-extension-copilot-share.git"
   },
-  "version": "0.0.5",
+  "version": "0.0.6",
   "icon": "src/res/icon_green_background_128.png",
   "engines": {
     "vscode": "^1.109.0"

@@ -6,6 +6,11 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Unreleased]
 
+## [0.0.6] - 2026-06-09
+
+- Improve README introduction wording and heading phrasing for clearer product messaging.
+- Polish documentation grammar and readability in release-facing content.
+
 ## [0.0.5] - 2026-06-09
 
 - Improve extension introduction wording and heading structure in project documentation.
