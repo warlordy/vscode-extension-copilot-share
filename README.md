@@ -1,6 +1,6 @@
 # Copilot Share
 
-Copilot Share helps one VS Code host safely share VS Code Copilot access and usage budgets across devices on your local network with a local web hub and provide a [session-oriented workflow](#session-oriented-workflow) that treats sessions as reusable and reviewable assets with built-in search, summary, clone, export, and import features.
+Copilot Share helps a host safely share VS Code Copilot access and usage budgets across devices on your local network through a web hub, and provides a [session-oriented workflow](#session-oriented-workflow) that treats sessions as reusable and reviewable assets with built-in search, summary, clone, export, and import features.
 
 ## Why Copilot Share
 
@@ -33,7 +33,7 @@ Copilot Share helps one VS Code host safely share VS Code Copilot access and usa
 
 ## Why Try Copilot Share
 
-1. 🤗 Use Copilot on phones, tablets, laptops, and other devices on the same local network  without cloud relay setup.
+1. 🤗 Use Copilot on phones, tablets, laptops, and other devices on the same local network without setting up a cloud relay.
 2. 🏖️ Share Copilot access and usage budgets with teammates, family members, or workshop participants.
 3. 🚀 Session-oriented workflow that treats prompts and responses as reusable assets, with search, summary, clone, export, and import built in.
 4. ✍️ Built-in Prompt Polish Button: Refine draft prompts before sending for clearer, higher-quality results.
@@ -42,7 +42,7 @@ Copilot Share helps one VS Code host safely share VS Code Copilot access and usa
 
 ## Session-Oriented Workflow
 
-Traditionally, code was used to build applications and services. Copilot changes that by making prompts the primary way to generate code, documentation, and resource files.
+Traditionally, code was used to build applications and services. AI changes this by making prompts the primary way to generate code, documentation, and resource files.
 
 🦄 In this model:
 - Prompts are like source code.
@@ -53,7 +53,7 @@ Traditionally, code was used to build applications and services. Copilot changes
 - Reviewed with the same discipline used for code so you can confirm direction, validate requirements, surface gaps early, and reduce the risk of misleading AI-generated outputs.
 
 😜 Why call it session-oriented?
-- A session is a focused container for prompts that work toward a single objective. 
+- A session is a focused container for prompts that work toward a single objective.
 - A large project can be broken into smaller tasks, which can be further broken down into subtasks. Every task across all levels can be tracked in its own session. This creates a practical end-to-end session-driven workflow to manage structured multi-stage Copilot tasks.
 
 
