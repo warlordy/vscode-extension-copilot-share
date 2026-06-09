@@ -6,6 +6,11 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Unreleased]
 
+## [0.0.5] - 2026-06-09
+
+- Improve extension introduction wording and heading structure in project documentation.
+- Refine release-facing README messaging for clearer product promotion and discoverability.
+
 ## [0.0.4] - 2026-05-24
 
 - Improve README content and formatting for clearer product messaging and quicker onboarding.
