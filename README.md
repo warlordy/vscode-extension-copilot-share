@@ -13,16 +13,27 @@ Copilot Share helps a host safely share VS Code Copilot access and usage budgets
 ## 60-Second Quick Start
 
 1. Install `Copilot Share` from VS Code Marketplace.
-2. Click the status bar item (`Copilot Share`) and select Start Sharing.
-3. Open Local Web for the host machine, or copy Public URL for another LAN device.
+2. Click the status bar item (`Copilot Share`) and select `Start Sharing`.
+3. Click `Open Local Web` for the host machine, or click `Copy Public URL` for another LAN device.
 4. If access control is enabled, enter the access code on the web page.
 5. Start chatting and managing work in sessions.
 
 ## Quick Demo
 
-[Quick Start Demo](https://github.com/warlordy/vscode-extension-copilot-share/blob/main/src/doc/readme/copilot-share-screen-recording-quickstart.gif)
+1. [Quick Start Demo](https://github.com/warlordy/vscode-extension-copilot-share/blob/main/src/doc/readme/copilot-share-screen-recording-quickstart.gif)
+
+Click the status bar item (`Copilot Share`), select `Start Sharing`, and you can start using Copilot in the web hub.
 
 <img src="https://github.com/warlordy/vscode-extension-copilot-share/blob/main/src/doc/readme/copilot-share-screen-recording-quickstart.gif" alt="Quick Start Demo" />
+
+2. [Less Prompt Effort, Better AI Results](src/doc/readme/ai_agent_speed_up_via_prompt_optimization2.gif)
+
+Start with a simple, raw prompt, polish it in one click, and turn it into a clearer, richer, more actionable instruction so your AI agent can deliver higher-quality results.
+
+See the benchmark in [ai_agent_speed_up_via_prompt_optimization.md](promotion/ai_agent_speed_up_via_prompt_optimization.md).
+
+<img src="src/doc/readme/ai_agent_speed_up_via_prompt_optimization2.gif" alt="Prompt Polishing Demo" width="760" />
+
 
 ## Best For
 
