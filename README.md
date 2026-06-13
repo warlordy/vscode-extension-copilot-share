@@ -20,25 +20,57 @@ Copilot Share helps a host safely share VS Code Copilot access and usage budgets
 
 ## Quick Demo
 
-1. **Quick Start Demo**
+1. **Quick Start**
 
-Click the status bar item (`Copilot Share`), select `Start Sharing`, and you can start using Copilot in the web hub.
+Click the status bar item (`Copilot Share`), select `Start Sharing`, and launch the web hub in seconds.
 
-Demo video: [Quick Start](https://github.com/warlordy/vscode-extension-copilot-share/blob/main/src/doc/readme/copilot-share-screen-recording-quickstart.gif)
+Demo video: [Quick Start](https://github.com/warlordy/vscode-extension-copilot-share/blob/main/src/doc/readme/quick-start.gif)
 
-<img src="https://github.com/warlordy/vscode-extension-copilot-share/blob/main/src/doc/readme/copilot-share-screen-recording-quickstart.gif" alt="Quick Start Demo" />
+<img src="https://github.com/warlordy/vscode-extension-copilot-share/blob/main/src/doc/readme/quick-start.gif" alt="Quick Start Demo" width="760" />
 
 
-2. **Prompt Polishing**
+2. **Prompt Polishing: Less Prompt Effort, Better AI Results**
 
-Start with a simple, raw prompt, polish it in one click, and turn it into a clearer, richer, more actionable instruction so your AI agent can deliver higher-quality results.
+Start with a simple, raw prompt and polish it in one click to produce a clearer, richer, and more actionable instruction for your AI agent.
 
-See the benchmark in [ai_agent_speed_up_via_prompt_optimization.md](https://github.com/warlordy/vscode-extension-copilot-share/blob/main/promotion/ai_agent_speed_up_via_prompt_optimization.md).
+See the full benchmark and examples in [ai_agent_speed_up_via_prompt_optimization.md](https://github.com/warlordy/vscode-extension-copilot-share/blob/main/promotion/ai_agent_speed_up_via_prompt_optimization.md).
 
 Demo video: [Less Prompt Effort, Better AI Results](https://github.com/warlordy/vscode-extension-copilot-share/blob/main/src/doc/readme/ai_agent_speed_up_via_prompt_optimization2.gif)
 
 <img src="https://github.com/warlordy/vscode-extension-copilot-share/blob/main/src/doc/readme/ai_agent_speed_up_via_prompt_optimization2.gif" alt="Prompt Polishing Demo" width="760" />
 
+3. **Message Contextual Menus: More Message Operations**
+
+Right-click a message bubble to open the contextual menu, then copy, favorite, delete, or retry messages with one click.
+
+Demo video: [Message Contextual Menus](https://github.com/warlordy/vscode-extension-copilot-share/blob/main/src/doc/readme/message-contextual-menus.gif)
+
+<img src="https://github.com/warlordy/vscode-extension-copilot-share/blob/main/src/doc/readme/message-contextual-menus.gif" alt="Message Contextual Menus" width="760" />
+
+4. **Session Summary:**
+
+Generate a concise summary of the current session to surface key topics, critical points, and next actions while reducing chat noise.
+
+Demo video: [Session Summary](https://github.com/warlordy/vscode-extension-copilot-share/blob/main/src/doc/readme/session-summary.gif)
+
+<img src="https://github.com/warlordy/vscode-extension-copilot-share/blob/main/src/doc/readme/session-summary.gif" alt="Session Summary" width="760" />
+
+5. **Session Search: Improve session usage, allow reuse and thus saving tokens**
+
+Find matching content in the current session or across all sessions to speed up reuse and reduce repeated prompting.
+
+Demo video: [Session Search](https://github.com/warlordy/vscode-extension-copilot-share/blob/main/src/doc/readme/session-search.gif)
+
+<img src="https://github.com/warlordy/vscode-extension-copilot-share/blob/main/src/doc/readme/session-search.gif" alt="Session Search" width="760" />
+
+
+6. **Session Export and Import: Rebuild and Review Sessions Across Devices**
+
+Export sessions as Markdown for backup and sharing, then import them to quickly rebuild context on another device.
+
+Demo video: [Session Rebuild](https://github.com/warlordy/vscode-extension-copilot-share/blob/main/src/doc/readme/session-rebuild.gif)
+
+<img src="https://github.com/warlordy/vscode-extension-copilot-share/blob/main/src/doc/readme/session-rebuild.gif" alt="Session Rebuild" width="760" />
 
 ## Best For
 
