@@ -6,6 +6,13 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Unreleased]
 
+## [0.0.7] - 2026-06-14
+
+- Expand README quick demos with six focused feature walkthrough GIFs for faster onboarding.
+- Add prompt polishing benchmark and examples in `promotion/ai_agent_speed_up_via_prompt_optimization.md`.
+- Add DEV post draft in `promotion/dev.to.md` for Marketplace and community promotion.
+- Normalize documentation media links to GitHub-hosted URLs for consistent rendering across platforms.
+
 ## [0.0.6] - 2026-06-09
 
 - Improve README introduction wording and heading phrasing for clearer product messaging.
