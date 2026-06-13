@@ -20,19 +20,24 @@ Copilot Share helps a host safely share VS Code Copilot access and usage budgets
 
 ## Quick Demo
 
-1. [Quick Start Demo](https://github.com/warlordy/vscode-extension-copilot-share/blob/main/src/doc/readme/copilot-share-screen-recording-quickstart.gif)
+1. **Quick Start Demo**
 
 Click the status bar item (`Copilot Share`), select `Start Sharing`, and you can start using Copilot in the web hub.
 
+Demo video: [Quick Start](https://github.com/warlordy/vscode-extension-copilot-share/blob/main/src/doc/readme/copilot-share-screen-recording-quickstart.gif)
+
 <img src="https://github.com/warlordy/vscode-extension-copilot-share/blob/main/src/doc/readme/copilot-share-screen-recording-quickstart.gif" alt="Quick Start Demo" />
 
-2. [Less Prompt Effort, Better AI Results](src/doc/readme/ai_agent_speed_up_via_prompt_optimization2.gif)
+
+2. **Prompt Polishing**
 
 Start with a simple, raw prompt, polish it in one click, and turn it into a clearer, richer, more actionable instruction so your AI agent can deliver higher-quality results.
 
-See the benchmark in [ai_agent_speed_up_via_prompt_optimization.md](promotion/ai_agent_speed_up_via_prompt_optimization.md).
+See the benchmark in [ai_agent_speed_up_via_prompt_optimization.md](https://github.com/warlordy/vscode-extension-copilot-share/blob/main/promotion/ai_agent_speed_up_via_prompt_optimization.md).
 
-<img src="src/doc/readme/ai_agent_speed_up_via_prompt_optimization2.gif" alt="Prompt Polishing Demo" width="760" />
+Demo video: [Less Prompt Effort, Better AI Results](https://github.com/warlordy/vscode-extension-copilot-share/blob/main/src/doc/readme/ai_agent_speed_up_via_prompt_optimization2.gif)
+
+<img src="https://github.com/warlordy/vscode-extension-copilot-share/blob/main/src/doc/readme/ai_agent_speed_up_via_prompt_optimization2.gif" alt="Prompt Polishing Demo" width="760" />
 
 
 ## Best For
