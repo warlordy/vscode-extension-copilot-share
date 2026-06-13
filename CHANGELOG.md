@@ -6,6 +6,12 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Unreleased]
 
+## [0.0.8] - 2026-06-14
+
+- Fix README embedded image format for broader Markdown rendering compatibility.
+- Switch demo and screenshot media links to raw GitHub asset URLs for direct image display.
+- Refine Quick Demo title wording for clearer onboarding intent.
+
 ## [0.0.7] - 2026-06-14
 
 - Expand README quick demos with six focused feature walkthrough GIFs for faster onboarding.
