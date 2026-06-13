@@ -20,13 +20,13 @@ Copilot Share helps a host safely share VS Code Copilot access and usage budgets
 
 ## Quick Demo
 
-1. **Quick Start**
+1. **Quick Start: Share VS Code Copilot access and usage budgets**
 
 Click the status bar item (`Copilot Share`), select `Start Sharing`, and launch the web hub in seconds.
 
-Demo video: [Quick Start](https://github.com/warlordy/vscode-extension-copilot-share/blob/main/src/doc/readme/quick-start.gif)
+Demo video: [Quick Start](https://raw.githubusercontent.com/warlordy/vscode-extension-copilot-share/main/src/doc/readme/quick-start.gif)
 
-<img src="https://github.com/warlordy/vscode-extension-copilot-share/blob/main/src/doc/readme/quick-start.gif" alt="Quick Start Demo" width="760" />
+![Quick Start Demo](https://raw.githubusercontent.com/warlordy/vscode-extension-copilot-share/main/src/doc/readme/quick-start.gif)
 
 
 2. **Prompt Polishing: Less Prompt Effort, Better AI Results**
@@ -35,42 +35,42 @@ Start with a simple, raw prompt and polish it in one click to produce a clearer,
 
 See the full benchmark and examples in [ai_agent_speed_up_via_prompt_optimization.md](https://github.com/warlordy/vscode-extension-copilot-share/blob/main/promotion/ai_agent_speed_up_via_prompt_optimization.md).
 
-Demo video: [Less Prompt Effort, Better AI Results](https://github.com/warlordy/vscode-extension-copilot-share/blob/main/src/doc/readme/ai_agent_speed_up_via_prompt_optimization2.gif)
+Demo video: [Less Prompt Effort, Better AI Results](https://raw.githubusercontent.com/warlordy/vscode-extension-copilot-share/main/src/doc/readme/ai_agent_speed_up_via_prompt_optimization2.gif)
 
-<img src="https://github.com/warlordy/vscode-extension-copilot-share/blob/main/src/doc/readme/ai_agent_speed_up_via_prompt_optimization2.gif" alt="Prompt Polishing Demo" width="760" />
+![Prompt Polishing Demo](https://raw.githubusercontent.com/warlordy/vscode-extension-copilot-share/main/src/doc/readme/ai_agent_speed_up_via_prompt_optimization2.gif)
 
 3. **Message Contextual Menus: More Message Operations**
 
 Right-click a message bubble to open the contextual menu, then copy, favorite, delete, or retry messages with one click.
 
-Demo video: [Message Contextual Menus](https://github.com/warlordy/vscode-extension-copilot-share/blob/main/src/doc/readme/message-contextual-menus.gif)
+Demo video: [Message Contextual Menus](https://raw.githubusercontent.com/warlordy/vscode-extension-copilot-share/main/src/doc/readme/message-contextual-menus.gif)
 
-<img src="https://github.com/warlordy/vscode-extension-copilot-share/blob/main/src/doc/readme/message-contextual-menus.gif" alt="Message Contextual Menus" width="760" />
+![Message Contextual Menus](https://raw.githubusercontent.com/warlordy/vscode-extension-copilot-share/main/src/doc/readme/message-contextual-menus.gif)
 
 4. **Session Summary:**
 
 Generate a concise summary of the current session to surface key topics, critical points, and next actions while reducing chat noise.
 
-Demo video: [Session Summary](https://github.com/warlordy/vscode-extension-copilot-share/blob/main/src/doc/readme/session-summary.gif)
+Demo video: [Session Summary](https://raw.githubusercontent.com/warlordy/vscode-extension-copilot-share/main/src/doc/readme/session-summary.gif)
 
-<img src="https://github.com/warlordy/vscode-extension-copilot-share/blob/main/src/doc/readme/session-summary.gif" alt="Session Summary" width="760" />
+![Session Summary](https://raw.githubusercontent.com/warlordy/vscode-extension-copilot-share/main/src/doc/readme/session-summary.gif)
 
 5. **Session Search: Improve session usage, allow reuse and thus saving tokens**
 
 Find matching content in the current session or across all sessions to speed up reuse and reduce repeated prompting.
 
-Demo video: [Session Search](https://github.com/warlordy/vscode-extension-copilot-share/blob/main/src/doc/readme/session-search.gif)
+Demo video: [Session Search](https://raw.githubusercontent.com/warlordy/vscode-extension-copilot-share/main/src/doc/readme/session-search.gif)
 
-<img src="https://github.com/warlordy/vscode-extension-copilot-share/blob/main/src/doc/readme/session-search.gif" alt="Session Search" width="760" />
+![Session Search](https://raw.githubusercontent.com/warlordy/vscode-extension-copilot-share/main/src/doc/readme/session-search.gif)
 
 
 6. **Session Export and Import: Rebuild and Review Sessions Across Devices**
 
 Export sessions as Markdown for backup and sharing, then import them to quickly rebuild context on another device.
 
-Demo video: [Session Rebuild](https://github.com/warlordy/vscode-extension-copilot-share/blob/main/src/doc/readme/session-rebuild.gif)
+Demo video: [Session Rebuild](https://raw.githubusercontent.com/warlordy/vscode-extension-copilot-share/main/src/doc/readme/session-rebuild.gif)
 
-<img src="https://github.com/warlordy/vscode-extension-copilot-share/blob/main/src/doc/readme/session-rebuild.gif" alt="Session Rebuild" width="760" />
+![Session Rebuild](https://raw.githubusercontent.com/warlordy/vscode-extension-copilot-share/main/src/doc/readme/session-rebuild.gif)
 
 ## Best For
 
@@ -118,13 +118,13 @@ Use [60-Second Quick Start](#60-second-quick-start) to get connected first, then
 
 ## Screenshots
 
-- [Control Menu](https://github.com/warlordy/vscode-extension-copilot-share/blob/main/src/doc/readme/control-menu-window-combined.png) (start/stop sharing, URLs, access code):
+- [Control Menu](https://raw.githubusercontent.com/warlordy/vscode-extension-copilot-share/main/src/doc/readme/control-menu-window-combined.png) (start/stop sharing, URLs, access code):
 
-<img src="https://github.com/warlordy/vscode-extension-copilot-share/blob/main/src/doc/readme/control-menu-window-combined.png" alt="Copilot Share control menu" style="display: block; width: min(100%, 460px); height: auto; margin-top: 0.5rem; border: 1px solid #d0d7de; border-radius: 8px;" />
+![Copilot Share control menu](https://raw.githubusercontent.com/warlordy/vscode-extension-copilot-share/main/src/doc/readme/control-menu-window-combined.png)
 
-- [Web hub UI modules](https://github.com/warlordy/vscode-extension-copilot-share/blob/main/src/doc/readme/web-hub-ui-modules-annotation.drawio.png):
+- [Web hub UI modules](https://raw.githubusercontent.com/warlordy/vscode-extension-copilot-share/main/src/doc/readme/web-hub-ui-modules-annotation.drawio.png):
 
-<img src="https://github.com/warlordy/vscode-extension-copilot-share/blob/main/src/doc/readme/web-hub-ui-modules-annotation.drawio.png" alt="Copilot Share web hub modules" style="display: block; width: min(100%, 980px); height: auto; margin-top: 0.5rem; border: 1px solid #d0d7de; border-radius: 10px; background: #ffffff;" />
+![Copilot Share web hub modules](https://raw.githubusercontent.com/warlordy/vscode-extension-copilot-share/main/src/doc/readme/web-hub-ui-modules-annotation.drawio.png)
 
 ## Architecture Snapshot
 
