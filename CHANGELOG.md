@@ -6,6 +6,13 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 
 ## [Unreleased]
 
+## [0.0.9] - 2026-06-14
+
+- Add new promotion docs for session-oriented workflow, session search, and session summary.
+- Exclude `promotion/**` from VSIX packaging via `.vscodeignore`.
+- Refine README quick demo wording for Session Summary and Session Export/Import.
+- Normalize prompt-polishing demo links in promotion docs to direct raw GitHub GIF URLs.
+
 ## [0.0.8] - 2026-06-14
 
 - Fix README embedded image format for broader Markdown rendering compatibility.
