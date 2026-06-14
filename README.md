@@ -47,7 +47,7 @@ Demo video: [Message Contextual Menus](https://raw.githubusercontent.com/warlord
 
 ![Message Contextual Menus](https://raw.githubusercontent.com/warlordy/vscode-extension-copilot-share/main/src/doc/readme/message-contextual-menus.gif)
 
-4. **Session Summary:**
+4. **Session Summary: Turn chatty sessions into meaningful outcomes**
 
 Generate a concise summary of the current session to surface key topics, critical points, and next actions while reducing chat noise.
 
@@ -68,9 +68,9 @@ Demo video: [Session Search](https://raw.githubusercontent.com/warlordy/vscode-e
 
 Export sessions as Markdown for backup and sharing, then import them to quickly rebuild context on another device.
 
-Demo video: [Session Rebuild](https://raw.githubusercontent.com/warlordy/vscode-extension-copilot-share/main/src/doc/readme/session-rebuild.gif)
+Demo video: [Session Export and Import](https://raw.githubusercontent.com/warlordy/vscode-extension-copilot-share/main/src/doc/readme/session-rebuild.gif)
 
-![Session Rebuild](https://raw.githubusercontent.com/warlordy/vscode-extension-copilot-share/main/src/doc/readme/session-rebuild.gif)
+![Session Export and Import](https://raw.githubusercontent.com/warlordy/vscode-extension-copilot-share/main/src/doc/readme/session-rebuild.gif)
 
 ## Best For
 

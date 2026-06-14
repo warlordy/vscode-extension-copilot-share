@@ -3,6 +3,7 @@
 .github/**
 out/**
 node_modules/**
+promotion/**
 src/**
 !src/res/icon_green_background_128.png
 src/res/__pycache__/**

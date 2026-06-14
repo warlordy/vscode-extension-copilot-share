@@ -20,9 +20,9 @@ Start with a simple, raw prompt, polish it in one click, and turn it into a clea
 3. Send the polished prompt to the AI agent.
 4. Receive more structured and practical responses.
 
-Demo video: [Prompt Polishing GIF](https://github.com/warlordy/vscode-extension-copilot-share/blob/main/src/doc/readme/ai_agent_speed_up_via_prompt_optimization2.gif)
+Demo video: [Prompt Polishing GIF](https://raw.githubusercontent.com/warlordy/vscode-extension-copilot-share/main/src/doc/readme/ai_agent_speed_up_via_prompt_optimization2.gif)
 
-<img src="https://github.com/warlordy/vscode-extension-copilot-share/blob/main/src/doc/readme/ai_agent_speed_up_via_prompt_optimization2.gif" alt="Prompt Polishing Demo" width="760" />
+![Prompt Polishing GIF](https://raw.githubusercontent.com/warlordy/vscode-extension-copilot-share/main/src/doc/readme/ai_agent_speed_up_via_prompt_optimization2.gif)
 
 ## Real Example: Before vs After
 
